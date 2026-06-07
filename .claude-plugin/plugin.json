@@ -1,6 +1,6 @@
 {
   "name": "cmux-todo-board",
   "description": "Bridge GitHub Issues into a local board (board.json/TODO.md), mirror ready tasks into Claude's built-in task list, and dispatch work through cmux panes.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": { "name": "Kaiukov" }
 }

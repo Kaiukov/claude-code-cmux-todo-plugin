@@ -3,17 +3,19 @@ set -euo pipefail
 
 usage() {
   cat <<EOF
-Usage: board-pull [--repo OWNER/REPO] [--label LABELS] [--assignee USER] [--milestone TITLE]
+Usage: board-pull [--repo OWNER/REPO] [--label LABELS] [--assignee USER] [--milestone TITLE] [--strategy all-open|labels]
 
 Fetch GitHub issues and write .tasks/issues.json.
 
 Filters:
-  --repo OWNER/REPO   Repository (or set BOARD_REPO env var).
-  --label LABELS      Comma-separated labels to filter by (OR semantics — issues
-                      matching ANY label are returned).
-                      Default: inbox,ready,in-progress,needs-review,blocked,needs-info,done
-  --assignee USER     Filter by assignee (AND-combined with labels/milestone).
-  --milestone TITLE   Filter by milestone title (AND-combined with labels/assignee).
+  --repo OWNER/REPO    Repository (or set BOARD_REPO env var).
+  --label LABELS       Comma-separated labels to filter by (OR semantics — issues
+                       matching ANY label are returned).
+                       Default: inbox,ready,in-progress,needs-review,blocked,needs-info,done
+  --assignee USER      Filter by assignee (AND-combined with labels/milestone).
+  --milestone TITLE    Filter by milestone title (AND-combined with labels/assignee).
+  --strategy STRATEGY  Pull strategy: all-open (default) — one API call + local filter;
+                       labels — per-label queries unioned.
 
 At least one of --label, --assignee, or --milestone must be provided
 (or already present in the defaults) to scope the pull.
@@ -36,11 +38,31 @@ union_issues() {
   '
 }
 
+# filter_by_labels: keep issues whose labels intersect the requested set.
+# <labels_csv> <issues_json> → prints filtered JSON array (no network, pure jq).
+# Empty csv → keep all issues. Issues with no labels are dropped when csv non-empty.
+filter_by_labels() {
+  local labels_csv="$1" issues_json="$2"
+
+  if [[ -z "$labels_csv" ]]; then
+    printf '%s\n' "$issues_json"
+    return
+  fi
+
+  local labels_json
+  labels_json=$(echo "$labels_csv" | tr ',' '\n' | tr -d ' ' | jq -R -s 'split("\n") | map(select(length > 0))')
+
+  echo "$issues_json" | jq --argjson labels "$labels_json" '
+    map(select([.labels[].name] as $issue_labels | any($labels[]; . as $lbl | $issue_labels | index($lbl))))
+  '
+}
+
 # Parse args
 REPO="${BOARD_REPO:-}"
 LABEL="inbox,ready,in-progress,needs-review,blocked,needs-info,done"
 ASSIGNEE=""
 MILESTONE=""
+STRATEGY="all-open"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -48,6 +70,7 @@ while [[ $# -gt 0 ]]; do
     --label) LABEL="$2"; shift 2 ;;
     --assignee) ASSIGNEE="$2"; shift 2 ;;
     --milestone) MILESTONE="$2"; shift 2 ;;
+    --strategy) STRATEGY="$2"; shift 2 ;;
     --help|-h) usage ;;
     *) echo "Unknown flag: $1"; usage ;;
   esac
@@ -55,6 +78,11 @@ done
 
 if [[ -z "$REPO" ]]; then
   echo "ERROR: --repo or BOARD_REPO is required." >&2
+  exit 1
+fi
+
+if [[ "$STRATEGY" != "all-open" && "$STRATEGY" != "labels" ]]; then
+  echo "ERROR: --strategy must be 'all-open' or 'labels'. Got: '$STRATEGY'" >&2
   exit 1
 fi
 
@@ -100,12 +128,9 @@ done
 
 stderr_tmp=$(mktemp)
 
-if [[ ${#trimmed_labels[@]} -le 1 ]]; then
-  # Single label (or none): single query — original behaviour
+if [[ "$STRATEGY" == "all-open" ]]; then
+  # all-open: one gh call (no --label), then filter locally
   query_args=("${base_args[@]}")
-  if [[ -n "${trimmed_labels[0]:-}" ]]; then
-    query_args+=("--label" "${trimmed_labels[0]}")
-  fi
   query_args+=(${extra_args[@]+"${extra_args[@]}"})
 
   issues_json=$(gh issue list "${query_args[@]}" 2>"$stderr_tmp") || {
@@ -114,21 +139,39 @@ if [[ ${#trimmed_labels[@]} -le 1 ]]; then
     echo "ERROR: Failed to fetch issues" >&2
     exit 1
   }
+  issues_json=$(filter_by_labels "$LABEL" "$issues_json")
 else
-  # Multiple labels: query each label separately, then union (OR semantics)
-  results=()
-  for lbl in "${trimmed_labels[@]}"; do
-    query_args=("${base_args[@]}" "--label" "$lbl")
+  # labels strategy: original per-label union logic
+  if [[ ${#trimmed_labels[@]} -le 1 ]]; then
+    # Single label (or none): single query
+    query_args=("${base_args[@]}")
+    if [[ -n "${trimmed_labels[0]:-}" ]]; then
+      query_args+=("--label" "${trimmed_labels[0]}")
+    fi
     query_args+=(${extra_args[@]+"${extra_args[@]}"})
-    result=$(gh issue list "${query_args[@]}" 2>"$stderr_tmp") || {
+
+    issues_json=$(gh issue list "${query_args[@]}" 2>"$stderr_tmp") || {
       cat "$stderr_tmp" >&2
       rm -f "$stderr_tmp"
-      echo "ERROR: Failed to fetch issues for label '${lbl}'" >&2
+      echo "ERROR: Failed to fetch issues" >&2
       exit 1
     }
-    results+=("$result")
-  done
-  issues_json=$(union_issues "${results[@]}")
+  else
+    # Multiple labels: query each label separately, then union (OR semantics)
+    results=()
+    for lbl in "${trimmed_labels[@]}"; do
+      query_args=("${base_args[@]}" "--label" "$lbl")
+      query_args+=(${extra_args[@]+"${extra_args[@]}"})
+      result=$(gh issue list "${query_args[@]}" 2>"$stderr_tmp") || {
+        cat "$stderr_tmp" >&2
+        rm -f "$stderr_tmp"
+        echo "ERROR: Failed to fetch issues for label '${lbl}'" >&2
+        exit 1
+      }
+      results+=("$result")
+    done
+    issues_json=$(union_issues "${results[@]}")
+  fi
 fi
 
 # Print any captured stderr (warnings, notices) to stderr

@@ -106,7 +106,7 @@ by status.
 | `/board-init`       | Initialize a repo with canonical board status labels. Run once per repo before board-pull. |
 | `/board-create-issue` | Turn a raw task description into a structured GitHub issue and create it. |
 | `/board-add-task`  | Add a local task without a GitHub issue. Local tasks live in `.tasks/local.json` and never touch GitHub. |
-| `/board-pull`       | Fetch GitHub issues and render the local board.            |
+| `/board-pull`       | Fetch GitHub issues and render the local board. Supports `--strategy all-open` (default, one API call + local filter) and `--strategy labels` (per-label queries unioned). |
 | `/board-plan`       | Mirror `ready` tasks into Claude's built-in task list.     |
 | `/board-run-ready`  | Dispatch ready tasks to cmux panes for parallel execution. |
 | `/board`            | Show the board flow and operating rules.                   |

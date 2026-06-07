@@ -79,3 +79,48 @@ assert_json_eq "Test 6" "$result" "$expected"
 
 echo ""
 echo "All union_issues tests passed."
+
+# --- filter_by_labels tests ---
+
+filter_by_labels() {
+  local labels_csv="$1" issues_json="$2"
+
+  if [[ -z "$labels_csv" ]]; then
+    printf '%s\n' "$issues_json"
+    return
+  fi
+
+  local labels_json
+  labels_json=$(echo "$labels_csv" | tr ',' '\n' | tr -d ' ' | jq -R -s 'split("\n") | map(select(length > 0))')
+
+  echo "$issues_json" | jq --argjson labels "$labels_json" '
+    map(select([.labels[].name] as $issue_labels | any($labels[]; . as $lbl | $issue_labels | index($lbl))))
+  '
+}
+
+echo "--- Test 7: filter_by_labels keeps issues whose labels intersect ---"
+issues='[{"number":1,"labels":[{"name":"ready"}]},{"number":2,"labels":[{"name":"done"}]},{"number":3,"labels":[]}]'
+result=$(filter_by_labels "ready,inbox" "$issues")
+expected='[{"number":1,"labels":[{"name":"ready"}]}]'
+assert_json_eq "Test 7" "$result" "$expected"
+
+echo "--- Test 8: filter_by_labels drops issues with no matching label ---"
+issues='[{"number":1,"labels":[{"name":"ready"}]},{"number":2,"labels":[{"name":"done"}]}]'
+result=$(filter_by_labels "inbox" "$issues")
+expected='[]'
+assert_json_eq "Test 8" "$result" "$expected"
+
+echo "--- Test 9: filter_by_labels empty csv keeps all ---"
+issues='[{"number":1,"labels":[{"name":"ready"}]},{"number":2,"labels":[{"name":"done"}]}]'
+result=$(filter_by_labels "" "$issues")
+expected='[{"number":1,"labels":[{"name":"ready"}]},{"number":2,"labels":[{"name":"done"}]}]'
+assert_json_eq "Test 9" "$result" "$expected"
+
+echo "--- Test 10: filter_by_labels issue with no labels dropped when csv non-empty ---"
+issues='[{"number":1,"labels":[{"name":"ready"}]},{"number":2,"labels":[]},{"number":3,"labels":[{"name":"inbox"}]}]'
+result=$(filter_by_labels "ready" "$issues")
+expected='[{"number":1,"labels":[{"name":"ready"}]}]'
+assert_json_eq "Test 10" "$result" "$expected"
+
+echo ""
+echo "All filter_by_labels tests passed."

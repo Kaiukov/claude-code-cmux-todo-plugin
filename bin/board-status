@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CANONICAL_STATUSES=("inbox" "ready" "in-progress" "needs-review" "blocked" "needs-info" "done")
+
+usage() {
+  cat <<EOF
+Usage: board-status [--json] [--help|-h]
+
+Print compact board state for the orchestrator.
+Reads .tasks/board.json and outputs status counts + the next ready task.
+
+Options:
+  --json      Machine-readable JSON output
+  --help, -h  Show this help message
+EOF
+  exit 0
+}
+
+JSON_MODE=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --json) JSON_MODE=1; shift ;;
+    --help|-h) usage ;;
+    *) echo "board-status: unknown flag: $1" >&2; usage ;;
+  esac
+done
+
+BOARD_FILE=".tasks/board.json"
+
+if [[ ! -f "$BOARD_FILE" ]]; then
+  echo "board-status: .tasks/board.json not found — run board-pull first" >&2
+  exit 1
+fi
+
+if [[ "$JSON_MODE" -eq 1 ]]; then
+  jq -n --slurpfile board "$BOARD_FILE" '
+    $board[0] as $b |
+    {
+      counts: {
+        inbox: ([$b[] | select(.status=="inbox")] | length),
+        ready: ([$b[] | select(.status=="ready")] | length),
+        in_progress: ([$b[] | select(.status=="in-progress")] | length),
+        needs_review: ([$b[] | select(.status=="needs-review")] | length),
+        blocked: ([$b[] | select(.status=="blocked")] | length),
+        needs_info: ([$b[] | select(.status=="needs-info")] | length),
+        done: ([$b[] | select(.status=="done")] | length)
+      },
+      next_ready: ([$b[] | select(.status=="ready")] | .[0] // null)
+    }
+  '
+else
+  parts=()
+  for s in "${CANONICAL_STATUSES[@]}"; do
+    count=$(jq "[.[] | select(.status==\"$s\")] | length" "$BOARD_FILE")
+    parts+=("${s}=${count}")
+  done
+  echo "${parts[*]}"
+
+  NEXT=$(jq -r '[.[] | select(.status=="ready")] | .[0] // empty' "$BOARD_FILE")
+  if [[ -z "$NEXT" ]]; then
+    echo "next_ready=(none)"
+  else
+    number=$(echo "$NEXT" | jq -r '.number // ""')
+    id_field=$(echo "$NEXT" | jq -r '.id // ""')
+    title=$(echo "$NEXT" | jq -r '.title')
+    if [[ -n "$number" ]]; then
+      echo "next_ready=#${number} ${title}"
+    else
+      echo "next_ready=${id_field} ${title}"
+    fi
+  fi
+fi

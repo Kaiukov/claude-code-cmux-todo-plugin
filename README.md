@@ -151,6 +151,8 @@ claude plugin validate .
 | `bin/board-init`              | Bash: create/normalize canonical labels |
 | `bin/board-pull`              | Bash: fetch issues via `gh`       |
 | `bin/board-render`            | Python: generate board.json + TODO.md |
+| `bin/board-status`            | Bash: compact board state for the orchestrator (counts + next ready) |
+| `bin/board-next`              | Bash: return next actionable task for a given status |
 | `skills/*/SKILL.md`           | Skill definitions                 |
 | `hooks/hooks.json`            | SessionStart board summary        |
 | `docs/state-model.md`         | State mapping across representations |

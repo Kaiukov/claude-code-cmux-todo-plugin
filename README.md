@@ -5,7 +5,8 @@ mirrors ready tasks into Claude's built-in task list, and dispatches work
 through cmux panes.
 
 **Status:** MVP (one-directional: GitHub Issues → local board → task list).
-Sync-back to GitHub is future work.
+Sync-back to GitHub is future work. Installation is designed to source the marketplace
+from GitHub so `/plugin marketplace update` pulls the latest `main`.
 
 ## Installation
 
@@ -21,12 +22,66 @@ Run these inside Claude Code, from your project folder:
 The skills then appear as `/board-init`, `/board-pull`, etc. in that project.
 Update later with `/plugin marketplace update kaiukov-tools`.
 
-### Via local dir (development)
+### Updating
+
+Plugins never auto-update silently — update is always a manual command.
+When the marketplace is registered from GitHub, run these inside Claude Code:
+
+```
+/plugin marketplace update kaiukov-tools
+/reload-plugins
+```
+
+This re-reads the latest `main` from GitHub and reloads skills and hooks.
+
+### Via local dir (development / fallback)
 
 ```bash
 git clone https://github.com/Kaiukov/claude-code-cmux-todo-plugin
 claude --plugin-dir ./claude-code-cmux-todo-plugin   # or /reload-plugins if running
 ```
+
+### Troubleshooting
+
+**`ERR_STREAM_PREMATURE_CLOSE` during `marketplace add`**
+
+This is a known upstream race in Claude Code's plugin manager when it streams
+git child-process stdio. The repo itself is public and reachable over both SSH
+and HTTPS — the same `git clone` command succeeds when run by hand. The plugin
+manager always passes `--recurse-submodules --shallow-submodules`; this repo
+has no `.gitmodules`, so submodule flags are a guaranteed no-op and are not the
+cause.
+
+**Workaround A — retry (transient):** The stdio race sometimes clears on retry.
+Run `/plugin marketplace add Kaiukov/claude-code-cmux-todo-plugin` again.
+
+**Workaround B — local-directory fallback (always works):**
+
+```bash
+git clone https://github.com/Kaiukov/claude-code-cmux-todo-plugin
+```
+
+Then inside Claude Code register the checkout as a Directory source:
+
+```
+/plugin marketplace add ./claude-code-cmux-todo-plugin   # Source: Directory
+```
+
+Update later with:
+
+```bash
+git -C ./claude-code-cmux-todo-plugin pull
+```
+
+Then inside Claude Code:
+
+```
+/plugin marketplace update kaiukov-tools
+/reload-plugins
+```
+
+The GitHub-sourced path is the intended primary flow; the local-directory path
+is the developer fallback when the upstream race surfaces.
 
 ## Quick start
 

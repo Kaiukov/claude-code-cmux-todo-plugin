@@ -9,16 +9,39 @@ Sync-back to GitHub is future work.
 
 ## Installation
 
-```bash
-# Clone the repo
-git clone <repo-url> cmux-todo-board
+### Via `/plugin` (recommended)
 
-# Load plugin in Claude Code
-claude --plugin-dir ./cmux-todo-board
+Run these inside Claude Code, from your project folder:
 
-# Or, if already running:
-/reload-plugins
 ```
+/plugin marketplace add Kaiukov/claude-code-cmux-todo-plugin
+/plugin install cmux-todo-board@kaiukov-tools
+```
+
+The skills then appear as `/board-init`, `/board-pull`, etc. in that project.
+Update later with `/plugin marketplace update kaiukov-tools`.
+
+### Via local dir (development)
+
+```bash
+git clone https://github.com/Kaiukov/claude-code-cmux-todo-plugin
+claude --plugin-dir ./claude-code-cmux-todo-plugin   # or /reload-plugins if running
+```
+
+## Quick start
+
+Run from your project folder, once the plugin is installed:
+
+```
+/board-init --repo owner/repo    # 1. run ONCE per repo — create canonical labels
+/board-pull --repo owner/repo    # 2. fetch issues → .tasks/board.json + TODO.md
+/board-plan                      # 3. mirror `ready` issues into Claude's task list
+/board-run-ready                 # 4. dispatch ready tasks into cmux panes
+```
+
+Label your issues with `ready` (or the other canonical statuses) so `board-pull`
+picks them up. Review `TODO.md` between steps 2 and 3 to see everything grouped
+by status.
 
 ## Skills
 
@@ -39,11 +62,9 @@ GitHub Issues  --board-pull-->  .tasks/board.json  --board-plan-->  Claude task 
                                              board-run-ready --> cmux panes
 ```
 
-0. **`/board-init --repo owner/repo`** (run once) — create canonical status labels.
-1. **`/board-pull --repo owner/repo`** — fetch issues, render board.
-2. Review `TODO.md` to see all tasks grouped by status.
-3. **`/board-plan`** — create Claude tasks for all `ready` items.
-4. **`/board-run-ready`** — dispatch tasks into cmux panes.
+GitHub labels are the source of truth for status; `board.json` is a local cache
+and `TODO.md` is a read-only render. See [Quick start](#quick-start) for the
+command sequence.
 
 ## Verification
 

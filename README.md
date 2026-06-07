@@ -47,6 +47,7 @@ by status.
 
 | Skill               | Description                                                |
 |---------------------|------------------------------------------------------------|
+| `/board-onboard`    | Run FIRST in a clean session — switch into orchestrator mode and load all board + cmux operating instructions. |
 | `/board-init`       | Initialize a repo with canonical board status labels. Run once per repo before board-pull. |
 | `/board-pull`       | Fetch GitHub issues and render the local board.            |
 | `/board-plan`       | Mirror `ready` tasks into Claude's built-in task list.     |

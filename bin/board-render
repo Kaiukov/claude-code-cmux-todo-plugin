@@ -42,8 +42,9 @@ def derive_status(labels: list[dict] | list[str]) -> str:
     return "inbox"  # default fallback
 
 
-def render(input_path: Path, board_path: Path, todo_path: Path) -> None:
-    """Read issues.json, write board.json and TODO.md."""
+def render(input_path: Path, board_path: Path, todo_path: Path) -> int:
+    """Read issues.json, write board.json / TODO.md / .tasks/issues/<n>.md.
+    Returns count of issue body files written."""
 
     with open(input_path) as f:
         issues = json.load(f)
@@ -158,6 +159,39 @@ def render(input_path: Path, board_path: Path, todo_path: Path) -> None:
     with open(todo_path, "w") as f:
         f.write("\n".join(lines) + "\n")
 
+    # Persist per-issue bodies to .tasks/issues/<n>.md
+    issues_dir = board_path.parent / "issues"
+    issues_dir.mkdir(parents=True, exist_ok=True)
+    issue_body_count = 0
+    for task in board:
+        if task["source"] != "github":
+            continue
+        num = task["number"]
+        title = task["title"]
+        url = task["url"]
+        status = task["status"]
+        labels_str = ", ".join(task["labels"]) if task["labels"] else ""
+        body = None
+        for iss in issues:
+            if iss.get("number") == num:
+                body = iss.get("body")
+                break
+        md_path = issues_dir / f"{num}.md"
+        with open(md_path, "w") as f:
+            f.write(f"# #{num} {title}\n\n")
+            f.write(f"URL: {url}\n")
+            f.write(f"Status: {status}\n")
+            f.write(f"Labels: {labels_str}\n")
+            f.write("\n## Body\n\n")
+            if body is not None:
+                f.write(str(body))
+            else:
+                f.write("(no body)")
+            f.write("\n")
+        issue_body_count += 1
+
+    return issue_body_count
+
 
 def main() -> None:
     root = Path.cwd()
@@ -170,7 +204,7 @@ def main() -> None:
               file=sys.stderr)
         sys.exit(1)
 
-    render(input_file, board_file, todo_file)
+    issue_body_count = render(input_file, board_file, todo_file)
 
     # Print summary to stderr
     with open(board_file) as f:
@@ -181,7 +215,8 @@ def main() -> None:
     in_progress = sum(1 for t in board if t["status"] == "in-progress")
     print(
         f"board-render: {total} tasks → .tasks/board.json + TODO.md "
-        f"(ready={ready}, in-progress={in_progress}, blocked={blocked})",
+        f"(ready={ready}, in-progress={in_progress}, blocked={blocked})"
+        f" +{issue_body_count} issue bodies",
         file=sys.stderr)
 
 

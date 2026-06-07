@@ -189,5 +189,84 @@ else
   exit 1
 fi
 
+echo "--- Test 14: issue body persisted to .tasks/issues/<n>.md ---"
+cat > "$TMPDIR/.tasks/issues.json" <<'BODYEOF'
+[
+  {
+    "number": 42,
+    "title": "demo",
+    "labels": [{"name": "ready"}],
+    "url": "https://x/42",
+    "assignees": [],
+    "body": "hello world"
+  }
+]
+BODYEOF
+rm -f "$TMPDIR/.tasks/local.json"
+run_render 2>/dev/null
+md_path="$TMPDIR/.tasks/issues/42.md"
+if [[ ! -f "$md_path" ]]; then
+  echo "FAIL: .tasks/issues/42.md was not created"
+  exit 1
+fi
+if grep -q "# #42 demo" "$md_path" && grep -q "Status: ready" "$md_path" && grep -q "hello world" "$md_path"; then
+  echo "PASS"
+else
+  echo "FAIL: .tasks/issues/42.md content wrong:"
+  cat "$md_path"
+  exit 1
+fi
+
+echo "--- Test 15: missing body writes '(no body)' ---"
+cat > "$TMPDIR/.tasks/issues.json" <<'NOBODYEOF'
+[
+  {
+    "number": 99,
+    "title": "no body issue",
+    "labels": [{"name": "inbox"}],
+    "url": "https://x/99",
+    "assignees": []
+  }
+]
+NOBODYEOF
+rm -f "$TMPDIR/.tasks/local.json"
+rm -f "$TMPDIR/.tasks/issues/42.md"
+run_render 2>/dev/null
+md_path="$TMPDIR/.tasks/issues/99.md"
+if [[ ! -f "$md_path" ]]; then
+  echo "FAIL: .tasks/issues/99.md was not created"
+  exit 1
+fi
+if grep -q "# #99 no body issue" "$md_path" && grep -q "(no body)" "$md_path"; then
+  echo "PASS"
+else
+  echo "FAIL: .tasks/issues/99.md content wrong:"
+  cat "$md_path"
+  exit 1
+fi
+
+echo "--- Test 16: no .md for local tasks ---"
+cat > "$TMPDIR/.tasks/local.json" <<'LOCALNOMD'
+[
+  {"id": "L1", "title": "local only", "status": "ready"}
+]
+LOCALNOMD
+cat > "$TMPDIR/.tasks/issues.json" <<'EMPTY'
+[]
+EMPTY
+rm -f "$TMPDIR/.tasks/issues/99.md"
+run_render 2>/dev/null
+if [[ -f "$TMPDIR/.tasks/issues/L1.md" ]]; then
+  echo "FAIL: .tasks/issues/L1.md should not exist for local tasks"
+  exit 1
+fi
+local_count=$(python3 -c "import json; data=json.load(open('$TMPDIR/.tasks/board.json')); print(len([t for t in data if t.get('source')=='local']))")
+if [[ "$local_count" == "1" && ! -f "$TMPDIR/.tasks/issues/L1.md" ]]; then
+  echo "PASS"
+else
+  echo "FAIL: local task handling wrong"
+  exit 1
+fi
+
 echo ""
 echo "All tests passed."

@@ -158,3 +158,7 @@ claude plugin validate .
 | `docs/state-model.md`         | State mapping across representations |
 | `docs/file-roles.md`          | Roles of generated files          |
 | `tests/`                      | Self-contained render tests       |
+| `.tasks/board.json`           | Generated: local board cache      |
+| `.tasks/issues.json`          | Generated: fetched GitHub issues  |
+| `.tasks/issues/<n>.md`        | Per-issue body cache for workers (not committed; `.tasks/` is gitignored) |
+| `TODO.md`                     | Generated: read-only task board   |

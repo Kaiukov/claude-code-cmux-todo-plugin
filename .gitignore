@@ -1,0 +1,4 @@
+.tasks/
+TODO.md
+.orchestrator/
+__pycache__/

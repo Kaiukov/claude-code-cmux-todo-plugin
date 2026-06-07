@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<EOF
+Usage: board-pull [--repo OWNER/REPO] [--label LABELS] [--assignee USER] [--milestone TITLE]
+
+Fetch GitHub issues and write .tasks/issues.json.
+
+Filters:
+  --repo OWNER/REPO   Repository (or set BOARD_REPO env var).
+  --label LABELS      Comma-separated labels to filter by.
+                      Default: inbox,ready,in-progress,needs-review,blocked,needs-info,done
+  --assignee USER     Filter by assignee.
+  --milestone TITLE   Filter by milestone title.
+
+At least one of --label, --assignee, or --milestone must be provided
+(or already present in the defaults) to scope the pull.
+EOF
+  exit 0
+}
+
+# Parse args
+REPO="${BOARD_REPO:-}"
+LABEL="inbox,ready,in-progress,needs-review,blocked,needs-info,done"
+ASSIGNEE=""
+MILESTONE=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --repo) REPO="$2"; shift 2 ;;
+    --label) LABEL="$2"; shift 2 ;;
+    --assignee) ASSIGNEE="$2"; shift 2 ;;
+    --milestone) MILESTONE="$2"; shift 2 ;;
+    --help|-h) usage ;;
+    *) echo "Unknown flag: $1"; usage ;;
+  esac
+done
+
+if [[ -z "$REPO" ]]; then
+  echo "ERROR: --repo or BOARD_REPO is required." >&2
+  exit 1
+fi
+
+# Check rate limit
+rate_limit_json=$(gh api rate_limit 2>/dev/null || true)
+if [[ -n "$rate_limit_json" ]]; then
+  remaining=$(echo "$rate_limit_json" | jq -r '.resources.core.remaining // 9999')
+  if [[ "$remaining" == "0" ]]; then
+    reset_ts=$(echo "$rate_limit_json" | jq -r '.resources.core.reset // 0')
+    if [[ "$reset_ts" =~ ^[0-9]+$ ]]; then
+      reset_time=$(date -r "$reset_ts" "+%Y-%m-%d %H:%M:%S" 2>/dev/null || echo "unknown")
+      echo "ERROR: GitHub API rate limit exhausted. Resets at $reset_time" >&2
+    else
+      echo "ERROR: GitHub API rate limit exhausted." >&2
+    fi
+    exit 1
+  fi
+else
+  echo "WARNING: Could not check rate limit. Proceeding anyway." >&2
+fi
+
+# Ensure .tasks directory exists
+mkdir -p .tasks
+
+# Build query filters
+query_args=("--repo" "$REPO" "--state" "open" "--json" "number,title,labels,url,assignees,state,updatedAt,body" "--limit" "1000")
+
+if [[ -n "$LABEL" ]]; then
+  query_args+=("--label" "$LABEL")
+fi
+if [[ -n "$ASSIGNEE" ]]; then
+  query_args+=("--assignee" "$ASSIGNEE")
+fi
+if [[ -n "$MILESTONE" ]]; then
+  query_args+=("--milestone" "$MILESTONE")
+fi
+
+# Fetch issues
+stderr_tmp=$(mktemp)
+issues_json=$(gh issue list "${query_args[@]}" 2>"$stderr_tmp") || {
+  cat "$stderr_tmp" >&2
+  rm -f "$stderr_tmp"
+  echo "ERROR: Failed to fetch issues" >&2
+  exit 1
+}
+# Print any captured stderr (warnings, notices) to stderr
+if [[ -s "$stderr_tmp" ]]; then
+  cat "$stderr_tmp" >&2
+fi
+rm -f "$stderr_tmp"
+
+# Write to cache file
+printf '%s\n' "$issues_json" > .tasks/issues.json
+
+# Print summary to stderr
+total=$(echo "$issues_json" | jq '. | length' 2>/dev/null || echo "?")
+echo "board-pull: fetched ${total} issues from ${REPO} → .tasks/issues.json" >&2
+
+# Run board-render to generate board.json and TODO.md
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+board_render="${SCRIPT_DIR}/board-render"
+if [[ -x "$board_render" ]]; then
+  python3 "$board_render"
+else
+  echo "WARNING: board-render not found at $board_render" >&2
+fi

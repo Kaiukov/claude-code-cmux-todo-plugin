@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -f TODO.md ]; then echo '=== Board Summary ==='; grep -c '^## ' TODO.md; grep -c '^- \\[ \\]' TODO.md; echo '==================='; fi"
+          }
+        ]
+      }
+    ]
+  }
+}

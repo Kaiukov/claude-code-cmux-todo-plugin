@@ -1,0 +1,65 @@
+[
+  {
+    "number": 1,
+    "title": "Set up project scaffolding",
+    "labels": [{"name": "inbox"}],
+    "url": "https://github.com/example/repo/issues/1",
+    "assignees": []
+  },
+  {
+    "number": 2,
+    "title": "Implement user authentication",
+    "labels": [{"name": "ready"}],
+    "url": "https://github.com/example/repo/issues/2",
+    "assignees": [{"login": "alice"}]
+  },
+  {
+    "number": 3,
+    "title": "Fix login page CSS",
+    "labels": [{"name": "in-progress"}],
+    "url": "https://github.com/example/repo/issues/3",
+    "assignees": [{"login": "bob"}]
+  },
+  {
+    "number": 4,
+    "title": "Review PR #42",
+    "labels": [{"name": "needs-review"}],
+    "url": "https://github.com/example/repo/issues/4",
+    "assignees": [{"login": "alice"}]
+  },
+  {
+    "number": 5,
+    "title": "Add payment integration (blocked by API key)",
+    "labels": [{"name": "blocked"}],
+    "url": "https://github.com/example/repo/issues/5",
+    "assignees": []
+  },
+  {
+    "number": 6,
+    "title": "Clarify requirements for export feature",
+    "labels": [{"name": "needs-info"}],
+    "url": "https://github.com/example/repo/issues/6",
+    "assignees": [{"login": "bob"}]
+  },
+  {
+    "number": 7,
+    "title": "Deploy v1.0 to production",
+    "labels": [{"name": "done"}],
+    "url": "https://github.com/example/repo/issues/7",
+    "assignees": [{"login": "alice"}]
+  },
+  {
+    "number": 8,
+    "title": "Null-labels issue (should default to inbox)",
+    "labels": null,
+    "url": "https://github.com/example/repo/issues/8",
+    "assignees": null
+  },
+  {
+    "number": 9,
+    "title": "Multi-label: inbox + ready — ready should win",
+    "labels": [{"name": "inbox"}, {"name": "ready"}],
+    "url": "https://github.com/example/repo/issues/9",
+    "assignees": []
+  }
+]

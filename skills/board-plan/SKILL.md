@@ -23,7 +23,7 @@ entries in Claude's built-in task list for the current round.
 1. Read `.tasks/board.json`.
 2. Filter to tasks where `status == "ready"`.
 3. For each ready task, create a task entry with:
-   - `title`: `#{number} {title}`
+   - `title`: `#{number} {title}` for GitHub tasks, `[{id}] {title}` for local tasks.
    - `description`: URL and labels from the board entry.
    - `status`: `pending`
 4. Do NOT create tasks for `blocked` or `needs-info` items — those must never

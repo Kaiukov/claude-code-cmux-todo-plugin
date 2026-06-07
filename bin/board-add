@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CANONICAL_STATUSES=("inbox" "ready" "in-progress" "needs-review" "blocked" "needs-info" "done")
+
+usage() {
+  cat <<EOF
+Usage: board-add [--status STATUS] <title words...>
+       board-add --list
+       board-add --remove <id>
+       board-add --help|-h
+
+Add a LOCAL task (no GitHub issue) to the board.
+Local tasks live in .tasks/local.json and are never pushed to GitHub.
+
+Options:
+  --status STATUS  Canonical status (default: ready).
+                   Valid: inbox, ready, in-progress, needs-review, blocked, needs-info, done
+  --list           List all local tasks.
+  --remove <id>    Remove a local task by id (e.g. L1).
+  --help, -h       Show this help message.
+EOF
+  exit 0
+}
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TASKS_DIR=".tasks"
+LOCAL_FILE="${TASKS_DIR}/local.json"
+ISSUES_FILE="${TASKS_DIR}/issues.json"
+
+# --- --help|-h ---
+if [[ $# -gt 0 && ( "$1" == "--help" || "$1" == "-h" ) ]]; then
+  usage
+fi
+
+# --- --list ---
+if [[ $# -eq 1 && "$1" == "--list" ]]; then
+  if [[ ! -f "$LOCAL_FILE" ]] || [[ "$(jq '. | length' "$LOCAL_FILE" 2>/dev/null || echo 0)" == "0" ]]; then
+    echo "(none)"
+    exit 0
+  fi
+  jq -r '.[] | "\(.id) [\(.status)] \(.title)"' "$LOCAL_FILE"
+  exit 0
+fi
+
+# --- --remove ---
+if [[ $# -eq 2 && "$1" == "--remove" ]]; then
+  id="$2"
+  if [[ ! -f "$LOCAL_FILE" ]]; then
+    echo "board-add: local.json not found" >&2
+    exit 1
+  fi
+  found=$(jq -r --arg id "$id" '.[] | select(.id == $id) | .id' "$LOCAL_FILE")
+  if [[ -z "$found" ]]; then
+    echo "board-add: id '$id' not found" >&2
+    exit 1
+  fi
+  jq --arg id "$id" 'del(.[] | select(.id == $id))' "$LOCAL_FILE" > "${LOCAL_FILE}.tmp"
+  mv "${LOCAL_FILE}.tmp" "$LOCAL_FILE"
+  echo "board-add: removed $id" >&2
+
+  if [[ -f "$ISSUES_FILE" ]]; then
+    python3 "${SCRIPT_DIR}/board-render"
+  fi
+  exit 0
+fi
+
+# --- Default: add a task ---
+STATUS="ready"
+TITLE_PARTS=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --status)
+      STATUS="$2"
+      shift 2
+      ;;
+    --list|--remove|--help|-h)
+      echo "board-add: unexpected flag placement: $1" >&2
+      usage
+      ;;
+    *)
+      TITLE_PARTS+=("$1")
+      shift
+      ;;
+  esac
+done
+
+if [[ ${#TITLE_PARTS[@]} -eq 0 ]]; then
+  echo "board-add: title is required" >&2
+  usage
+fi
+
+TITLE="${TITLE_PARTS[*]}"
+
+# Validate status
+valid=0
+for s in "${CANONICAL_STATUSES[@]}"; do
+  if [[ "$STATUS" == "$s" ]]; then
+    valid=1
+    break
+  fi
+done
+if [[ $valid -eq 0 ]]; then
+  echo "board-add: invalid status '$STATUS'. Valid: ${CANONICAL_STATUSES[*]}" >&2
+  exit 1
+fi
+
+# Ensure .tasks/ exists
+mkdir -p "$TASKS_DIR"
+
+# Read or init local.json
+if [[ ! -f "$LOCAL_FILE" ]]; then
+  echo '[]' > "$LOCAL_FILE"
+fi
+
+# Auto-id: next free L<n>
+max_num=$(jq -r '[.[].id | select(startswith("L")) | ltrimstr("L") | tonumber] | max // 0' "$LOCAL_FILE")
+next_num=$((max_num + 1))
+new_id="L${next_num}"
+
+CREATED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+# Append new task
+jq --arg id "$new_id" --arg title "$TITLE" --arg status "$STATUS" --arg created "$CREATED" \
+  '. += [{id: $id, title: $title, status: $status, created: $created}]' \
+  "$LOCAL_FILE" > "${LOCAL_FILE}.tmp"
+mv "${LOCAL_FILE}.tmp" "$LOCAL_FILE"
+
+echo "board-add: added ${new_id} [${STATUS}] ${TITLE}" >&2
+
+# Re-render if issues.json exists
+if [[ -f "$ISSUES_FILE" ]]; then
+  python3 "${SCRIPT_DIR}/board-render"
+else
+  echo "board-add: hint: run board-pull to populate issues.json and render the board" >&2
+fi

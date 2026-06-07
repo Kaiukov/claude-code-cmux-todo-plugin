@@ -110,5 +110,84 @@ else
   exit 1
 fi
 
+echo "--- Test 9: local.json entries appear in board.json with source:local ---"
+cat > "$TMPDIR/.tasks/local.json" <<'LOCALEOF'
+[
+  {"id": "L1", "title": "deploy to dev", "status": "ready", "created": "2025-01-01T00:00:00Z"},
+  {"id": "L2", "title": "check logs", "status": "blocked", "created": "2025-01-02T00:00:00Z"}
+]
+LOCALEOF
+run_render 2>/dev/null
+local_sources=$(python3 -c "import json; data=json.load(open('$TMPDIR/.tasks/board.json')); print(' '.join(t['source'] for t in data if t.get('source')=='local'))")
+local_ids=$(python3 -c "import json; data=json.load(open('$TMPDIR/.tasks/board.json')); print(' '.join(str(t['id']) for t in data if t.get('source')=='local'))")
+if [[ "$local_sources" == "local local" && "$local_ids" == "L1 L2" ]]; then
+  echo "PASS"
+else
+  echo "FAIL: got sources='$local_sources' ids='$local_ids'"
+  exit 1
+fi
+
+echo "--- Test 10: TODO.md shows [L1] for local tasks ---"
+if grep -q '\[L1\]' "$TMPDIR/TODO.md" && grep -q '\[L2\]' "$TMPDIR/TODO.md"; then
+  echo "PASS"
+else
+  echo "FAIL: TODO.md missing [L1] or [L2] local task markers"
+  grep -E 'L1|L2' "$TMPDIR/TODO.md" || true
+  exit 1
+fi
+
+echo "--- Test 11: local tasks sorted after github within same status ---"
+# Add a local task with ready status; github issues #2 and #9 are also ready
+cat > "$TMPDIR/.tasks/local.json" <<'LOCALEOF2'
+[
+  {"id": "L1", "title": "local ready task", "status": "ready", "created": "2025-01-01T00:00:00Z"}
+]
+LOCALEOF2
+run_render 2>/dev/null
+# Extract ready section lines from TODO.md
+ready_lines=$(python3 -c "
+lines = open('$TMPDIR/TODO.md').read().split('\n')
+in_ready = False
+for l in lines:
+    if l.startswith('## ready'):
+        in_ready = True
+        continue
+    if in_ready and l.startswith('## '):
+        break
+    if in_ready and l.strip():
+        print(l.strip())
+")
+# github issues (#2, #9) should come first, then local L1 last
+last_ready=$(echo "$ready_lines" | tail -1)
+if echo "$last_ready" | grep -q '\[L1\]'; then
+  echo "PASS"
+else
+  echo "FAIL: local task not last in ready section"
+  echo "ready_lines:"
+  echo "$ready_lines"
+  exit 1
+fi
+
+echo "--- Test 12: summary includes local tasks ---"
+summary=$(run_render 2>&1)
+# 9 github + 1 local = 10 total; ready: #2, #9 (multi-label), L1 = 3
+if echo "$summary" | grep -q "10 tasks" && echo "$summary" | grep -q "ready=3" && echo "$summary" | grep -q "blocked=1" && echo "$summary" | grep -q "in-progress=1"; then
+  echo "PASS"
+else
+  echo "FAIL: summary line: $summary"
+  exit 1
+fi
+
+echo "--- Test 13: no local.json — unchanged behaviour ---"
+rm -f "$TMPDIR/.tasks/local.json"
+run_render 2>/dev/null
+github_count=$(python3 -c "import json; data=json.load(open('$TMPDIR/.tasks/board.json')); print(len(data))")
+if [[ "$github_count" == "9" ]]; then
+  echo "PASS"
+else
+  echo "FAIL: expected 9 github tasks, got $github_count"
+  exit 1
+fi
+
 echo ""
 echo "All tests passed."

@@ -71,17 +71,53 @@ def render(input_path: Path, board_path: Path, todo_path: Path) -> None:
 
         board.append({
             "number": number,
+            "id": None,
             "title": title,
             "status": status,
             "labels": [lbl.get("name", str(lbl)) if isinstance(lbl, dict) else str(lbl)
                        for lbl in labels],
             "url": url,
             "assignees": assignee_names,
+            "source": "github",
         })
 
-    # Deterministic sort: by canonical status order, then by issue number
+    # Merge local tasks from .tasks/local.json
+    local_path = input_path.parent / "local.json"
+    if local_path.exists():
+        with open(local_path) as f:
+            local_tasks = json.load(f)
+        if isinstance(local_tasks, list) and len(local_tasks) > 0:
+            for lt in local_tasks:
+                lt_status = lt.get("status", "inbox")
+                if lt_status not in STATUS_ORDER:
+                    lt_status = "inbox"
+                board.append({
+                    "number": None,
+                    "id": lt.get("id", "L?"),
+                    "title": lt.get("title", "untitled"),
+                    "status": lt_status,
+                    "labels": [],
+                    "url": "",
+                    "assignees": [],
+                    "source": "local",
+                })
+
+    # Deterministic sort: by canonical status order, then github first by number,
+    # then local by numeric id suffix
     status_rank = {s: i for i, s in enumerate(STATUS_ORDER)}
-    board.sort(key=lambda t: (status_rank.get(t["status"], 99), t["number"]))
+
+    def sort_key(t):
+        status_key = status_rank.get(t["status"], 99)
+        is_github = 0 if t["number"] is not None else 1
+        num = t["number"] if t["number"] is not None else 0
+        if t.get("id") and t["number"] is None:
+            try:
+                num = int(str(t["id"]).lstrip("L"))
+            except ValueError:
+                num = 0
+        return (status_key, is_github, num)
+
+    board.sort(key=sort_key)
 
     # Ensure .tasks directory exists
     board_path.parent.mkdir(parents=True, exist_ok=True)
@@ -110,10 +146,13 @@ def render(input_path: Path, board_path: Path, todo_path: Path) -> None:
         lines.append(f"## {status}")
         lines.append("")
         for t in tasks:
-            assignee_str = ""
-            if t["assignees"]:
-                assignee_str = " (@" + ", @".join(t["assignees"]) + ")"
-            lines.append(f"- [ ] [#{t['number']}] {t['title']}{assignee_str}")
+            if t.get("source") == "local":
+                lines.append(f"- [ ] [{t['id']}] {t['title']}")
+            else:
+                assignee_str = ""
+                if t["assignees"]:
+                    assignee_str = " (@" + ", @".join(t["assignees"]) + ")"
+                lines.append(f"- [ ] [#{t['number']}] {t['title']}{assignee_str}")
         lines.append("")
 
     with open(todo_path, "w") as f:

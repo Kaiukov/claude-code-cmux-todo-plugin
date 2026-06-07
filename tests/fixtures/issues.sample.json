@@ -47,5 +47,19 @@
     "labels": [{"name": "done"}],
     "url": "https://github.com/example/repo/issues/7",
     "assignees": [{"login": "alice"}]
+  },
+  {
+    "number": 8,
+    "title": "Null-labels issue (should default to inbox)",
+    "labels": null,
+    "url": "https://github.com/example/repo/issues/8",
+    "assignees": null
+  },
+  {
+    "number": 9,
+    "title": "Multi-label: inbox + ready — ready should win",
+    "labels": [{"name": "inbox"}, {"name": "ready"}],
+    "url": "https://github.com/example/repo/issues/9",
+    "assignees": []
   }
 ]

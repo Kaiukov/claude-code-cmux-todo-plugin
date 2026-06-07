@@ -29,6 +29,12 @@ Note: `blocked` and `needs-info` are terminal-without-completion states.
 | `blocked`       | `blocked`           | `pending`          |
 | `needs-info`    | `needs-info`        | `pending`          |
 | `done`          | `done`              | `completed`        |
+| `completed`     | `done`              | `completed`        |
+
+When an issue has multiple status labels, the **most-progressed** status wins
+(last match in canonical order: `done` > `needs-info`/`blocked` > `needs-review`
+> `in-progress` > `ready` > `inbox`). The legacy `completed` label is treated as
+equivalent to `done`.
 
 ## Session Recovery
 

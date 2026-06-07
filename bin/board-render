@@ -15,14 +15,13 @@ STATUS_ORDER = [
     "done",
 ]
 
-# Label-to-status mapping (case-insensitive label match)
-LABEL_TO_STATUS = {s: s for s in STATUS_ORDER}
-# Handle legacy "completed" label
-LABEL_TO_STATUS["completed"] = "done"
-
-
 def derive_status(labels: list[dict] | list[str]) -> str:
-    """Derive canonical status from a list of labels (GitHub API format)."""
+    """Derive canonical status from a list of labels (GitHub API format).
+
+    Walks STATUS_ORDER in reverse so the most-progressed status wins
+    when an issue has multiple status labels (e.g. both inbox and ready).
+    Legacy 'completed' label maps to 'done'.
+    """
     label_names = set()
     for label in labels:
         if isinstance(label, dict):
@@ -31,8 +30,8 @@ def derive_status(labels: list[dict] | list[str]) -> str:
             name = str(label).lower()
         label_names.add(name)
 
-    # Walk canonical order; first match wins
-    for status in STATUS_ORDER:
+    # Reverse walk: most-progressed status wins (last match in canonical order)
+    for status in reversed(STATUS_ORDER):
         if status in label_names:
             return status
 
@@ -59,10 +58,10 @@ def render(input_path: Path, board_path: Path, todo_path: Path) -> None:
     for issue in issues:
         number = issue.get("number", 0)
         title = issue.get("title", "untitled")
-        labels = issue.get("labels", [])
+        labels = issue.get("labels") or []
         status = derive_status(labels)
         url = issue.get("url", "")
-        assignees_raw = issue.get("assignees", [])
+        assignees_raw = issue.get("assignees") or []
         assignee_names = []
         for a in assignees_raw:
             if isinstance(a, dict):
@@ -95,10 +94,7 @@ def render(input_path: Path, board_path: Path, todo_path: Path) -> None:
     # Group by status for TODO.md
     groups: dict[str, list[dict]] = {s: [] for s in STATUS_ORDER}
     for task in board:
-        s = task["status"]
-        if s not in groups:
-            s = "inbox"
-        groups[s].append(task)
+        groups[task["status"]].append(task)
 
     # Build TODO.md lines
     lines = []

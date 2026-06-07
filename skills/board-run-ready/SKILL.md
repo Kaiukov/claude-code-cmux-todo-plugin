@@ -21,8 +21,10 @@ manual dispatch.
 
 ## Concurrency
 
-- **Default cap: 2 active panes.** Do not exceed without explicit user request.
-- Track pane state, not the built-in task list, for real parallelism.
+- **Default cap: 2 active cmux panes.** Do not exceed without explicit user request.
+- Up to 2 cmux panes may be active simultaneously, but the built-in task list
+  tracks only the current orchestrator focus task as `in_progress`. All other
+  dispatched tasks remain `pending` in the task list while their cmux panes run.
 - The orchestrator keeps at most ONE task `in_progress` in its built-in task
   list; cmux pane state is the real concurrency tracker.
 

@@ -48,8 +48,8 @@ if [[ -n "$rate_limit_json" ]]; then
   remaining=$(echo "$rate_limit_json" | jq -r '.resources.core.remaining // 9999')
   if [[ "$remaining" == "0" ]]; then
     reset_ts=$(echo "$rate_limit_json" | jq -r '.resources.core.reset // 0')
-    if [[ "$reset_ts" != "0" ]]; then
-      reset_time=$(python3 -c "import datetime; print(datetime.datetime.fromtimestamp($reset_ts).strftime('%Y-%m-%d %H:%M:%S'))" 2>/dev/null || echo "unknown")
+    if [[ "$reset_ts" =~ ^[0-9]+$ ]]; then
+      reset_time=$(date -r "$reset_ts" "+%Y-%m-%d %H:%M:%S" 2>/dev/null || echo "unknown")
       echo "ERROR: GitHub API rate limit exhausted. Resets at $reset_time" >&2
     else
       echo "ERROR: GitHub API rate limit exhausted." >&2
@@ -77,14 +77,31 @@ if [[ -n "$MILESTONE" ]]; then
 fi
 
 # Fetch issues
-issues_json=$(gh issue list "${query_args[@]}" 2>&1) || {
-  echo "ERROR: Failed to fetch issues: $issues_json" >&2
+stderr_tmp=$(mktemp)
+issues_json=$(gh issue list "${query_args[@]}" 2>"$stderr_tmp") || {
+  cat "$stderr_tmp" >&2
+  rm -f "$stderr_tmp"
+  echo "ERROR: Failed to fetch issues" >&2
   exit 1
 }
+# Print any captured stderr (warnings, notices) to stderr
+if [[ -s "$stderr_tmp" ]]; then
+  cat "$stderr_tmp" >&2
+fi
+rm -f "$stderr_tmp"
 
 # Write to cache file
-echo "$issues_json" > .tasks/issues.json
+printf '%s\n' "$issues_json" > .tasks/issues.json
 
 # Print summary to stderr
 total=$(echo "$issues_json" | jq '. | length' 2>/dev/null || echo "?")
 echo "board-pull: fetched ${total} issues from ${REPO} → .tasks/issues.json" >&2
+
+# Run board-render to generate board.json and TODO.md
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+board_render="${SCRIPT_DIR}/board-render"
+if [[ -x "$board_render" ]]; then
+  python3 "$board_render"
+else
+  echo "WARNING: board-render not found at $board_render" >&2
+fi

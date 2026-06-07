@@ -32,9 +32,9 @@ if [[ ! -f "$TMPDIR/.tasks/board.json" ]]; then
 fi
 echo "PASS"
 
-echo "--- Test 2: board.json has expected statuses ---"
+echo "--- Test 2: board.json has expected statuses (9 issues, incl. null labels + multi-label) ---"
 statuses=$(python3 -c "import json; data=json.load(open('$TMPDIR/.tasks/board.json')); print(' '.join(t['status'] for t in data))")
-expected_statuses="inbox ready in-progress needs-review blocked needs-info done"
+expected_statuses="inbox inbox ready ready in-progress needs-review blocked needs-info done"
 if [[ "$statuses" == "$expected_statuses" ]]; then
   echo "PASS"
 else
@@ -89,6 +89,24 @@ else
   diff "$TMPDIR/TODO.md.first" "$TMPDIR/TODO.md" || true
   echo "board.json diff:"
   diff "$TMPDIR/.tasks/board.json.first" "$TMPDIR/.tasks/board.json" || true
+  exit 1
+fi
+
+echo "--- Test 7: Null labels default to inbox ---"
+null_status=$(python3 -c "import json; data=json.load(open('$TMPDIR/.tasks/board.json')); issue8=[t for t in data if t['number']==8][0]; print(issue8['status'])")
+if [[ "$null_status" == "inbox" ]]; then
+  echo "PASS"
+else
+  echo "FAIL: issue #8 (null labels) got status '$null_status', expected 'inbox'"
+  exit 1
+fi
+
+echo "--- Test 8: Multi-label priority — ready wins over inbox ---"
+multi_status=$(python3 -c "import json; data=json.load(open('$TMPDIR/.tasks/board.json')); issue9=[t for t in data if t['number']==9][0]; print(issue9['status'])")
+if [[ "$multi_status" == "ready" ]]; then
+  echo "PASS"
+else
+  echo "FAIL: issue #9 (inbox + ready) got status '$multi_status', expected 'ready'"
   exit 1
 fi
 

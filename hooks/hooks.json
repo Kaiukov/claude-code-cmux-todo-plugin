@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -f TODO.md ]; then echo '=== Board Summary ==='; grep -c '^## ' TODO.md | head -1; grep -c '^- \\[ \\]' TODO.md; echo '==================='; fi"
+            "command": "if [ -f TODO.md ]; then echo '=== Board Summary ==='; grep -c '^## ' TODO.md; grep -c '^- \\[ \\]' TODO.md; echo '==================='; fi"
           }
         ]
       }

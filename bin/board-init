@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Canonical status labels — source of truth: docs/state-model.md
+# Each entry: "name|color|description"
+CANONICAL_LABELS=(
+  "inbox|ededed|board status: backlog, not triaged"
+  "ready|0E8A16|board status: ready to start"
+  "in-progress|1D76DB|board status: actively being worked"
+  "needs-review|FBCA04|board status: awaiting review"
+  "blocked|B60205|board status: blocked, do not start"
+  "needs-info|D93F0B|board status: needs clarification"
+  "done|5319E7|board status: completed"
+)
+
+usage() {
+  cat <<EOF
+Usage: board-init [--repo OWNER/REPO]
+
+Create or update canonical board status labels in a GitHub repository.
+Idempotent — safe to re-run; only touches the 7 canonical labels.
+
+Options:
+  --repo OWNER/REPO   Repository (or set BOARD_REPO env var).
+EOF
+  exit 0
+}
+
+REPO="${BOARD_REPO:-}"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --repo) REPO="$2"; shift 2 ;;
+    --help|-h) usage ;;
+    *) echo "Unknown flag: $1"; usage ;;
+  esac
+done
+
+if [[ -z "$REPO" ]]; then
+  echo "ERROR: --repo or BOARD_REPO is required." >&2
+  echo "Usage: board-init --repo OWNER/REPO" >&2
+  exit 1
+fi
+
+if ! command -v gh &>/dev/null; then
+  echo "ERROR: gh (GitHub CLI) is not installed or not on PATH." >&2
+  exit 1
+fi
+
+existing_labels=$(gh label list --repo "$REPO" --json name -q '.[].name' 2>/dev/null || true)
+
+created=0
+updated=0
+
+for entry in "${CANONICAL_LABELS[@]}"; do
+  IFS='|' read -r name color description <<< "$entry"
+  if echo "$existing_labels" | grep -qxF "$name"; then
+    action="updated"
+    updated=$((updated + 1))
+  else
+    action="created"
+    created=$((created + 1))
+  fi
+  echo "board-init: label '${name}' — ${action}" >&2
+  if ! gh label create "$name" --repo "$REPO" --force --color "$color" --description "$description" 2>/dev/null; then
+    echo "ERROR: failed to create/update label '${name}'" >&2
+    exit 1
+  fi
+done
+
+echo "board-init: ${created} created, ${updated} updated in ${REPO}" >&2

@@ -121,4 +121,42 @@ else
 fi
 
 echo ""
+echo "--- Test 9: --set updates existing task status ---"
+old_status=$(jq -r --arg id "L2" '.[] | select(.id == $id) | .status' "$TMPDIR/.tasks/local.json")
+run_add --set L2 --status "done" 2>/dev/null
+new_status=$(jq -r --arg id "L2" '.[] | select(.id == $id) | .status' "$TMPDIR/.tasks/local.json")
+if [[ "$old_status" != "$new_status" && "$new_status" == "done" ]]; then
+  echo "PASS"
+else
+  echo "FAIL: old_status=$old_status new_status=$new_status"
+  exit 1
+fi
+
+echo "--- Test 10: --set with unknown id fails ---"
+cp "$TMPDIR/.tasks/local.json" "$TMPDIR/.tasks/local.json.bak"
+if run_add --set L99 --status "done" 2>/dev/null; then
+  echo "FAIL: expected non-zero exit for unknown id"
+  exit 1
+fi
+if diff "$TMPDIR/.tasks/local.json" "$TMPDIR/.tasks/local.json.bak" >/dev/null 2>&1; then
+  echo "PASS"
+else
+  echo "FAIL: local.json was modified for unknown id"
+  exit 1
+fi
+
+echo "--- Test 11: --set with invalid status fails ---"
+cp "$TMPDIR/.tasks/local.json" "$TMPDIR/.tasks/local.json.bak"
+if run_add --set L2 --status "bogus" 2>/dev/null; then
+  echo "FAIL: expected non-zero exit for invalid status"
+  exit 1
+fi
+if diff "$TMPDIR/.tasks/local.json" "$TMPDIR/.tasks/local.json.bak" >/dev/null 2>&1; then
+  echo "PASS"
+else
+  echo "FAIL: local.json was modified for invalid status"
+  exit 1
+fi
+
+echo ""
 echo "All board-add tests passed."

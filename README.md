@@ -105,7 +105,7 @@ by status.
 | `/board-onboard`    | Run FIRST in a clean session — switch into orchestrator mode and load all board + cmux operating instructions. |
 | `/board-init`       | Initialize a repo with canonical board status labels. Run once per repo before board-pull. |
 | `/board-create-issue` | Turn a raw task description into a structured GitHub issue and create it. |
-| `/board-add-task`  | Add a local task without a GitHub issue. Local tasks live in `.tasks/local.json` and never touch GitHub. |
+| `/board-add-task`  | Add a local task without a GitHub issue. Local tasks live in `.tasks/local.json` and never touch GitHub. Local task status can be updated via `board-add --set <id> --status <status>`. |
 | `/board-pull`       | Fetch GitHub issues and render the local board. Supports `--strategy all-open` (default, one API call + local filter) and `--strategy labels` (per-label queries unioned). |
 | `/board-sync`       | Write ONE issue's status back to GitHub by swapping its canonical label. Idempotent, preserves non-canonical labels. |
 | `/board-plan`       | Mirror `ready` tasks into Claude's built-in task list.     |

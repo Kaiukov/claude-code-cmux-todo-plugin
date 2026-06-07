@@ -8,6 +8,7 @@ usage() {
 Usage: board-add [--status STATUS] <title words...>
        board-add --list
        board-add --remove <id>
+       board-add --set <id> --status <status>
        board-add --help|-h
 
 Add a LOCAL task (no GitHub issue) to the board.
@@ -18,6 +19,8 @@ Options:
                    Valid: inbox, ready, in-progress, needs-review, blocked, needs-info, done
   --list           List all local tasks.
   --remove <id>    Remove a local task by id (e.g. L1).
+  --set <id> --status <status>
+                   Update an existing local task's status (e.g. L1).
   --help, -h       Show this help message.
 EOF
   exit 0
@@ -65,6 +68,47 @@ if [[ $# -eq 2 && "$1" == "--remove" ]]; then
   exit 0
 fi
 
+# --- --set ---
+if [[ $# -eq 4 && "$1" == "--set" && "$3" == "--status" ]]; then
+  id="$2"
+  STATUS="$4"
+
+  if [[ ! -f "$LOCAL_FILE" ]]; then
+    echo "board-add: local.json not found" >&2
+    exit 1
+  fi
+
+  old_status=$(jq -r --arg id "$id" '.[] | select(.id == $id) | .status' "$LOCAL_FILE")
+  if [[ -z "$old_status" || "$old_status" == "null" ]]; then
+    echo "board-add: id '$id' not found" >&2
+    exit 1
+  fi
+
+  valid=0
+  for s in "${CANONICAL_STATUSES[@]}"; do
+    if [[ "$STATUS" == "$s" ]]; then
+      valid=1
+      break
+    fi
+  done
+  if [[ $valid -eq 0 ]]; then
+    echo "board-add: invalid status '$STATUS'. Valid: ${CANONICAL_STATUSES[*]}" >&2
+    exit 1
+  fi
+
+  jq --arg id "$id" --arg status "$STATUS" \
+    'map(if .id == $id then .status = $status else . end)' \
+    "$LOCAL_FILE" > "${LOCAL_FILE}.tmp"
+  mv "${LOCAL_FILE}.tmp" "$LOCAL_FILE"
+
+  echo "${id} ${old_status} -> ${STATUS}"
+
+  if [[ -f "$ISSUES_FILE" ]]; then
+    python3 "${SCRIPT_DIR}/board-render"
+  fi
+  exit 0
+fi
+
 # --- Default: add a task ---
 STATUS="ready"
 TITLE_PARTS=()
@@ -75,7 +119,7 @@ while [[ $# -gt 0 ]]; do
       STATUS="$2"
       shift 2
       ;;
-    --list|--remove|--help|-h)
+    --list|--remove|--set|--help|-h)
       echo "board-add: unexpected flag placement: $1" >&2
       usage
       ;;

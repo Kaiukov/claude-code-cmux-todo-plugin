@@ -36,6 +36,20 @@ When an issue has multiple status labels, the **most-progressed** status wins
 > `in-progress` > `ready` > `inbox`). The legacy `completed` label is treated as
 equivalent to `done`.
 
+## Bidirectional Sync
+
+Status flows in both directions:
+
+- **GitHub → board** (`board-pull`): reads GitHub labels and renders the local
+  board — the label list on each issue is the source of truth.
+- **board → GitHub** (`board-sync --issue N --status S`): writes ONE issue's
+  canonical status label to GitHub by swapping the old canonical label for the
+  new one. Non-canonical labels (enhancement, bug, etc.) are left untouched.
+  Idempotent — setting the same status is a no-op.
+
+This makes the board bidirectional: pull issues in, work locally, then sync
+status back.
+
 ## Session Recovery
 
 Claude's built-in task list is ephemeral — it is discarded at the end of every round.

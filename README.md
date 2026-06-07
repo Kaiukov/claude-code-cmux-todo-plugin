@@ -107,6 +107,7 @@ by status.
 | `/board-create-issue` | Turn a raw task description into a structured GitHub issue and create it. |
 | `/board-add-task`  | Add a local task without a GitHub issue. Local tasks live in `.tasks/local.json` and never touch GitHub. |
 | `/board-pull`       | Fetch GitHub issues and render the local board. Supports `--strategy all-open` (default, one API call + local filter) and `--strategy labels` (per-label queries unioned). |
+| `/board-sync`       | Write ONE issue's status back to GitHub by swapping its canonical label. Idempotent, preserves non-canonical labels. |
 | `/board-plan`       | Mirror `ready` tasks into Claude's built-in task list.     |
 | `/board-run-ready`  | Dispatch ready tasks to cmux panes for parallel execution. |
 | `/board`            | Show the board flow and operating rules.                   |
@@ -121,7 +122,8 @@ GitHub Issues  --board-pull-->  .tasks/board.json  --board-plan-->  Claude task 
 ```
 
 GitHub labels are the source of truth for status; `board.json` is a local cache
-and `TODO.md` is a read-only render. See [Quick start](#quick-start) for the
+and `TODO.md` is a read-only render. The board is bidirectional — `board-sync`
+writes status back to GitHub labels. See [Quick start](#quick-start) for the
 command sequence.
 
 ## Verification
@@ -133,14 +135,16 @@ bash tests/test_board_render.sh
 # Run the union/dedup logic tests
 bash tests/test_board_pull_union.sh
 
+# Run the label-swap logic tests
+bash tests/test_board_sync.sh
+
 # Validate plugin structure (if claude CLI available)
 claude plugin validate .
 ```
 
 ## Scope
 
-- **MVP (Phase 1):** Pull issues → render board → plan → dispatch.
-- **Out of scope:** Writing status back to GitHub (sync-back is Phase 4).
+- **MVP (Phase 1):** Pull issues → render board → plan → dispatch. Sync back via `board-sync`.
 - Only `ready` tasks are dispatched. `blocked` and `needs-info` are skipped.
 
 ## Files

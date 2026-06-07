@@ -24,6 +24,7 @@ claude --plugin-dir ./cmux-todo-board
 
 | Skill               | Description                                                |
 |---------------------|------------------------------------------------------------|
+| `/board-init`       | Initialize a repo with canonical board status labels. Run once per repo before board-pull. |
 | `/board-pull`       | Fetch GitHub issues and render the local board.            |
 | `/board-plan`       | Mirror `ready` tasks into Claude's built-in task list.     |
 | `/board-run-ready`  | Dispatch ready tasks to cmux panes for parallel execution. |
@@ -38,6 +39,7 @@ GitHub Issues  --board-pull-->  .tasks/board.json  --board-plan-->  Claude task 
                                              board-run-ready --> cmux panes
 ```
 
+0. **`/board-init --repo owner/repo`** (run once) — create canonical status labels.
 1. **`/board-pull --repo owner/repo`** — fetch issues, render board.
 2. Review `TODO.md` to see all tasks grouped by status.
 3. **`/board-plan`** — create Claude tasks for all `ready` items.
@@ -48,6 +50,9 @@ GitHub Issues  --board-pull-->  .tasks/board.json  --board-plan-->  Claude task 
 ```bash
 # Run the board-render tests
 bash tests/test_board_render.sh
+
+# Run the union/dedup logic tests
+bash tests/test_board_pull_union.sh
 
 # Validate plugin structure (if claude CLI available)
 claude plugin validate .
@@ -64,6 +69,7 @@ claude plugin validate .
 | Path                          | Role                              |
 |-------------------------------|-----------------------------------|
 | `.claude-plugin/plugin.json`  | Plugin manifest                   |
+| `bin/board-init`              | Bash: create/normalize canonical labels |
 | `bin/board-pull`              | Bash: fetch issues via `gh`       |
 | `bin/board-render`            | Python: generate board.json + TODO.md |
 | `skills/*/SKILL.md`           | Skill definitions                 |

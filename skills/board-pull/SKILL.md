@@ -17,9 +17,10 @@ board-pull --repo owner/repo
 ```
 
 Optional filters:
-- `--label inbox,ready` — comma-separated label filter
-- `--assignee username`
-- `--milestone "Sprint 1"`
+- `--label inbox,ready` — comma-separated label filter (**OR** semantics: issues
+  matching ANY of the labels are returned; a single label behaves as before)
+- `--assignee username` (AND-combined with labels/milestone)
+- `--milestone "Sprint 1"` (AND-combined with labels/assignee)
 
 Or set `BOARD_REPO` environment variable.
 
@@ -27,6 +28,8 @@ Or set `BOARD_REPO` environment variable.
 
 1. Checks GitHub API rate limit; fails with a clear message if exhausted.
 2. Fetches open issues matching the filters via `gh issue list --json`.
+   When multiple labels are specified, queries each label separately and
+   unions the results (OR semantics) deduplicated by issue number.
 3. Handles pagination (up to 1000 issues via `--limit`).
 4. Writes raw response to `.tasks/issues.json`.
 5. Runs `board-render` to generate `.tasks/board.json` and `TODO.md`.

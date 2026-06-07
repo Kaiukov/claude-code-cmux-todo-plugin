@@ -9,15 +9,31 @@ Fetch GitHub issues and write .tasks/issues.json.
 
 Filters:
   --repo OWNER/REPO   Repository (or set BOARD_REPO env var).
-  --label LABELS      Comma-separated labels to filter by.
+  --label LABELS      Comma-separated labels to filter by (OR semantics — issues
+                      matching ANY label are returned).
                       Default: inbox,ready,in-progress,needs-review,blocked,needs-info,done
-  --assignee USER     Filter by assignee.
-  --milestone TITLE   Filter by milestone title.
+  --assignee USER     Filter by assignee (AND-combined with labels/milestone).
+  --milestone TITLE   Filter by milestone title (AND-combined with labels/assignee).
 
 At least one of --label, --assignee, or --milestone must be provided
 (or already present in the defaults) to scope the pull.
 EOF
   exit 0
+}
+
+# union_issues: merge multiple JSON arrays, deduplicate by .number, sort by .number.
+# Accepts JSON arrays as positional arguments (each a string) and prints a single
+# JSON array to stdout. Intentionally a standalone function for testability.
+union_issues() {
+  if [[ $# -eq 0 ]]; then
+    printf '[]\n'
+    return
+  fi
+  printf '%s\n' "$@" | jq -s '
+    add
+    | unique_by(.number)
+    | sort_by(.number)
+  '
 }
 
 # Parse args
@@ -63,27 +79,58 @@ fi
 # Ensure .tasks directory exists
 mkdir -p .tasks
 
-# Build query filters
-query_args=("--repo" "$REPO" "--state" "open" "--json" "number,title,labels,url,assignees,state,updatedAt,body" "--limit" "1000")
-
-if [[ -n "$LABEL" ]]; then
-  query_args+=("--label" "$LABEL")
-fi
+# Build base query args (without label)
+base_args=("--repo" "$REPO" "--state" "open" "--json" "number,title,labels,url,assignees,state,updatedAt,body" "--limit" "1000")
+extra_args=()
 if [[ -n "$ASSIGNEE" ]]; then
-  query_args+=("--assignee" "$ASSIGNEE")
+  extra_args+=("--assignee" "$ASSIGNEE")
 fi
 if [[ -n "$MILESTONE" ]]; then
-  query_args+=("--milestone" "$MILESTONE")
+  extra_args+=("--milestone" "$MILESTONE")
 fi
 
-# Fetch issues
+# Split label string into individual labels
+IFS=',' read -r -a label_array <<< "$LABEL"
+
+# Trim whitespace from each label
+trimmed_labels=()
+for lbl in "${label_array[@]}"; do
+  trimmed_labels+=("$(echo "$lbl" | tr -d ' ' )")
+done
+
 stderr_tmp=$(mktemp)
-issues_json=$(gh issue list "${query_args[@]}" 2>"$stderr_tmp") || {
-  cat "$stderr_tmp" >&2
-  rm -f "$stderr_tmp"
-  echo "ERROR: Failed to fetch issues" >&2
-  exit 1
-}
+
+if [[ ${#trimmed_labels[@]} -le 1 ]]; then
+  # Single label (or none): single query — original behaviour
+  query_args=("${base_args[@]}")
+  if [[ -n "${trimmed_labels[0]:-}" ]]; then
+    query_args+=("--label" "${trimmed_labels[0]}")
+  fi
+  query_args+=("${extra_args[@]}")
+
+  issues_json=$(gh issue list "${query_args[@]}" 2>"$stderr_tmp") || {
+    cat "$stderr_tmp" >&2
+    rm -f "$stderr_tmp"
+    echo "ERROR: Failed to fetch issues" >&2
+    exit 1
+  }
+else
+  # Multiple labels: query each label separately, then union (OR semantics)
+  results=()
+  for lbl in "${trimmed_labels[@]}"; do
+    query_args=("${base_args[@]}" "--label" "$lbl")
+    query_args+=("${extra_args[@]}")
+    result=$(gh issue list "${query_args[@]}" 2>"$stderr_tmp") || {
+      cat "$stderr_tmp" >&2
+      rm -f "$stderr_tmp"
+      echo "ERROR: Failed to fetch issues for label '${lbl}'" >&2
+      exit 1
+    }
+    results+=("$result")
+  done
+  issues_json=$(union_issues "${results[@]}")
+fi
+
 # Print any captured stderr (warnings, notices) to stderr
 if [[ -s "$stderr_tmp" ]]; then
   cat "$stderr_tmp" >&2

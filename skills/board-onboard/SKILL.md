@@ -76,12 +76,12 @@ For each task you actually execute, run the orchestrator loop:
 6. **Live-check** anything real (deploy / `--remote` / migration) yourself.
 7. **Merge** (squash) + clean up the worktree, branch, and agent pane.
 
-If the **`cmux-agent-workflows`** helper skill is installed, use its scripts
-instead of hand-typing the steps: `wt-new.sh`, `agent-spawn.sh`,
-`agent-send.sh`, `agent-screen.sh`, `poll-push.sh`, `verify-ts.sh`,
-`pr-finish.sh`, `agent-kill.sh`. Model tiers: `deepseek-v4-flash` (mechanical),
-`deepseek-v4-pro` (default reasoning), codex `gpt-5.4` reasoning=high (review /
-bug-catching, limited budget).
+The **`cmux-agent-workflows`** scripts are bundled at
+`skills/cmux-agent-workflows/scripts/`. Use them natively instead of
+hand-typing the steps: `wt-new.sh`, `agent-spawn.sh`,
+`agent-send.sh`, `agent-screen.sh`, `poll-push.sh`, `verify-ts.sh` (or
+`verify.sh`), `pr-finish.sh`, `agent-kill.sh`. Model tiers are resolved via
+`board-config --get-model <tier>` (see `.tasks/config.json` for overrides).
 
 ## 5. On invocation — do this now
 

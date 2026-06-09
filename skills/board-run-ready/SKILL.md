@@ -27,8 +27,18 @@ Use compact helpers, not a full board read:
 
 ## Dispatch
 
-Prefer the `cmux-agent-workflows` skill's scripts (`wt-new.sh`,
-`agent-send.sh`, `pr-finish.sh`) if installed. Otherwise, raw cmux:
+The `cmux-agent-workflows` scripts are bundled at
+`skills/cmux-agent-workflows/scripts/`. Use them natively:
+
+1. **`skills/cmux-agent-workflows/scripts/wt-new.sh`** — worktree off `origin/main`.
+2. **`skills/cmux-agent-workflows/scripts/agent-spawn.sh`** — spawn agent (model tier via `board-config --get-model <tier>`).
+3. **`skills/cmux-agent-workflows/scripts/agent-send.sh`** — send task spec.
+4. **`skills/cmux-agent-workflows/scripts/poll-push.sh`** — poll origin (background).
+5. **`skills/cmux-agent-workflows/scripts/verify.sh`** (or `verify-ts.sh`) — hard gate.
+6. **`skills/cmux-agent-workflows/scripts/pr-finish.sh`** — merge + cleanup.
+7. **`skills/cmux-agent-workflows/scripts/agent-kill.sh`** — tear down pane.
+
+Fallback (no `cmux` on PATH):
 
 ```
 cmux new-split right

@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DEFAULT_LANG="EN"
+CONFIG_FILE=".tasks/config.json"
+
+usage() {
+  cat <<EOF
+Usage: board-config --get
+       board-config --set-language <code>
+       board-config --help|-h
+
+Manage board runtime configuration stored in ${CONFIG_FILE}.
+
+Commands:
+  --get                 Print the current language. Defaults to ${DEFAULT_LANG}
+                        if no config file or language key is set.
+  --set-language <code> Write/update the language in ${CONFIG_FILE},
+                        preserving any other keys. Code is normalized
+                        (uppercased, trimmed). Rejects empty/whitespace.
+  --help, -h            Show this help message.
+EOF
+  exit 0
+}
+
+# --- Pure functions (no file I/O) ---
+
+# normalize_lang <raw> — uppercase, trim, reject empty/whitespace.
+# Prints the normalized code on stdout. Returns non-zero on invalid input.
+normalize_lang() {
+  local raw="$1"
+
+  local trimmed
+  trimmed="$(echo "$raw" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+
+  if [[ -z "$trimmed" ]]; then
+    echo "board-config: language code must not be empty or whitespace" >&2
+    return 1
+  fi
+
+  echo "$trimmed" | tr '[:lower:]' '[:upper:]'
+}
+
+# resolve_language <json> — print language from config JSON or EN default.
+# <json> is the raw content of .tasks/config.json (may be empty/missing).
+resolve_language() {
+  local json="$1"
+
+  if [[ -z "$json" ]]; then
+    echo "$DEFAULT_LANG"
+    return
+  fi
+
+  local lang
+  lang="$(echo "$json" | jq -r '.language // empty' 2>/dev/null)"
+
+  if [[ -z "$lang" ]]; then
+    echo "$DEFAULT_LANG"
+  else
+    echo "$lang"
+  fi
+}
+
+# --- Main ---
+
+if [[ $# -gt 0 && ( "$1" == "--help" || "$1" == "-h" ) ]]; then
+  usage
+fi
+
+if [[ $# -eq 1 && "$1" == "--get" ]]; then
+  if [[ -f "$CONFIG_FILE" ]]; then
+    json="$(cat "$CONFIG_FILE")"
+  else
+    json=""
+  fi
+  resolve_language "$json"
+  exit 0
+fi
+
+if [[ $# -eq 2 && "$1" == "--set-language" ]]; then
+  if ! code="$(normalize_lang "$2")"; then
+    exit 1
+  fi
+
+  mkdir -p "$(dirname "$CONFIG_FILE")"
+
+  existing="{}"
+  if [[ -f "$CONFIG_FILE" ]]; then
+    existing="$(cat "$CONFIG_FILE")"
+  fi
+
+  echo "$existing" | jq --arg lang "$code" '. + {language: $lang}' > "${CONFIG_FILE}.tmp"
+  mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+  echo "$code"
+  exit 0
+fi
+
+echo "board-config: missing or unknown command. Use --help." >&2
+exit 1

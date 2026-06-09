@@ -56,6 +56,7 @@ properly structured GitHub issue on the board's repo.
 
 ## Notes
 
+- Generate issue titles and bodies in the configured language (`board-config --get`); default **EN**.
 - This skill WRITES to GitHub (creates an issue). It is the one board command
   besides `board-init` that mutates the remote repo. Confirm the resolved repo
   before creating if there is any doubt about which repo is active.

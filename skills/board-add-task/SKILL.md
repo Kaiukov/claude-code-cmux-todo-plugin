@@ -16,7 +16,8 @@ in `.tasks/local.json`, survive `board-pull`, and are merged into the board by
 ## Notes
 
 Local tasks are local-only, never pushed to GitHub (#5 is the separate sync-back
-feature). They live in `.tasks/local.json`.
+feature). They live in `.tasks/local.json`. Task titles are generated in the
+configured language (`board-config --get`); default **EN**.
 
 ## Procedure
 

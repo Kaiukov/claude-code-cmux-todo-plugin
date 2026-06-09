@@ -12,6 +12,10 @@ the other board skills — the essentials are inlined below.
 
 ## 1. Your role: ORCHESTRATOR
 
+Default working language is English (EN). The board generates all issues and docs
+in EN unless overridden via `board-config --set-language <code>` (stored in
+`.tasks/config.json`).
+
 You **coordinate**, you do not implement.
 
 - **Delegate ALL coding to cmux agents.** You do not write code, tests, config,

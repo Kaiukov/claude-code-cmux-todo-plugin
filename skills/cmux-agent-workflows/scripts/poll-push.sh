@@ -14,6 +14,20 @@ BRANCH="$1"; INTERVAL="${2:-30}"; TIMEOUT="${3:-1800}"; REPO="${4:-$(git rev-par
 
 baseline="$(git -C "$REPO" ls-remote origin "$BRANCH" | awk '{print $1}')"
 log "baseline for $BRANCH: ${baseline:-<none>}"
+
+# If branch already exists on origin and has commits ahead of origin/main,
+# report done immediately — don't wait for a SHA change that will never come.
+if [[ -n "$baseline" ]]; then
+  git -C "$REPO" fetch origin "$BRANCH" main --quiet 2>/dev/null || true
+  ahead=$(git -C "$REPO" rev-list --count origin/main.."origin/$BRANCH" 2>/dev/null || echo 0)
+  if [[ "$ahead" -gt 0 ]]; then
+    echo "PUSHED $baseline  (already on origin, $ahead commit(s) ahead of origin/main)"
+    gh pr list --head "$BRANCH" --json number,title,url \
+      --jq '.[] | "PR #\(.number) \(.title)\n\(.url)"' 2>/dev/null || true
+    exit 0
+  fi
+fi
+
 waited=0
 while (( waited < TIMEOUT )); do
   sleep "$INTERVAL"; waited=$((waited+INTERVAL))

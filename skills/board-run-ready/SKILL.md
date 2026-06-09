@@ -37,6 +37,7 @@ The `cmux-agent-workflows` scripts are bundled at
 5. **`skills/cmux-agent-workflows/scripts/verify.sh`** (or `verify-ts.sh`) — hard gate.
 6. **`skills/cmux-agent-workflows/scripts/pr-finish.sh`** — merge + cleanup.
 7. **`skills/cmux-agent-workflows/scripts/agent-kill.sh`** — tear down pane.
+8. **`skills/cmux-agent-workflows/scripts/agent-notify.sh`** — agent's final step (emits CTB-DONE payload).
 
 Fallback (no `cmux` on PATH):
 
@@ -55,9 +56,10 @@ Never trust an agent's self-report. Run the project's tests **and**
 
 ## Completion notification flow
 
-- **PRIMARY:** Event-driven signal from the dispatched agent back to the
-  orchestrator. The signal MUST carry: issue number, pane/surface ref,
-  success vs failure, and branch name if pushed.
+- **PRIMARY:** `agent-notify.sh` — the work prompt MUST instruct the agent to
+  call this as its final step (success or failure). Emits a `CTB-DONE` payload
+  via `cmux notify` (if on PATH) or stdout. The payload carries: task id,
+  surface ref, status (success|failure), and branch name if pushed.
 - **FALLBACK:** `poll-push.sh` (branch polling). A missed event never strands
   a task; the fallback catches completions the signal missed.
 

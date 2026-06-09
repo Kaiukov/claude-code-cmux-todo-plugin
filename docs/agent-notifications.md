@@ -1,7 +1,6 @@
 # Agent Completion Notifications
 
-Design/research note. Recommendation: event-driven signal PRIMARY,
-poll-push FALLBACK so a missed event never strands a task.
+**Status:** IMPLEMENTED — `agent-notify.sh` + `poll-push.sh` fallback.
 
 ## cmux primitives
 

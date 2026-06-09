@@ -62,7 +62,8 @@ approvals through `PermissionRequest` / `PreToolUse`).
 | `agent-send.sh <surface> <text…>` | Send a prompt + Enter (stdin for long prompts) | `agent-send.sh surface:172 "run tests, paste output"` |
 | `agent-screen.sh <surface> [lines]` | Read a surface screen | `agent-screen.sh surface:172 30` |
 | `agent-kill.sh <surface> [--agent opencode\|codex] [--close]` | Kill the agent proc by tty, optionally close split | `agent-kill.sh surface:172 --agent codex --close` |
-| `poll-push.sh <branch> [int] [timeout]` | Poll origin until branch pushed; print PR. Run with `run_in_background:true` | `poll-push.sh feat/foo 30 1800` |
+| `agent-notify.sh --task <id> --surface <ref> --status success\|failure [--branch <b>]` | Agent's FINAL step: emit CTB-DONE payload via `cmux notify` (PRIMARY) or stdout (FALLBACK). Never hard-fails. Orchestrator treats this as the primary completion signal; `poll-push.sh` is the fallback. | `agent-notify.sh --task 32 --surface surface:172 --status success --branch feat/foo` |
+| `poll-push.sh <branch> [int] [timeout]` | Poll origin until branch pushed; print PR. FALLBACK to `agent-notify.sh`. Reports done immediately if branch already exists ahead of origin/main (handles pre-pushed case). Run with `run_in_background:true` | `poll-push.sh feat/foo 30 1800` |
 | `verify.sh <wt> [base-ref]` | Project-agnostic gate: `bash -n` on changed shell scripts + `bun test`/`npm test` if a test script exists; no-op otherwise | `verify.sh $WT` |
 | `verify-ts.sh <wt>` | TS-specific hard gate: typecheck + full `bun test`, exits non-zero on any failure | `verify-ts.sh ../wt-feat-foo` |
 | `pr-finish.sh <pr#> [wt]` | Remove worktree, squash-merge, delete branch | `pr-finish.sh 121 $WT` |

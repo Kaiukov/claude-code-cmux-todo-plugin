@@ -1,0 +1,351 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<EOF
+Usage: board-release --current [-C DIR]
+       board-release --bump major|minor|patch [-C DIR]
+       board-release --release [major|minor|patch] [--notes NOTES] [--push] [-C DIR]
+       board-release --changelog [--version V] [--date D] [--added CSV] [--fixed CSV] [--changed CSV] [-C DIR]
+       board-release --help|-h
+
+Stack-agnostic SemVer release helper. Detects node / python / go / unknown,
+bumps versions, writes back to source files, and optionally creates git tags
+and GitHub Releases.
+
+SAFETY GATES:
+  - Working tree must be clean before a release.
+  - Never overwrites an existing tag.
+  - Network steps (push, gh release create) are opt-in via --push.
+EOF
+  exit 0
+}
+
+# ─── PURE (testable) functions ──────────────────────────────────────────────
+
+# bump_semver <version> <major|minor|patch>
+# Strips / keeps a leading 'v'. Rejects non-semver (exit 1).
+bump_semver() {
+  local version="$1" bump="$2"
+  local prefix=""
+
+  if [[ "$version" == v* ]]; then
+    prefix="v"
+    version="${version#v}"
+  fi
+
+  if [[ ! "$version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+    echo "bump_semver: invalid semver '${prefix}${version}'" >&2
+    return 1
+  fi
+
+  local major="${BASH_REMATCH[1]}" minor="${BASH_REMATCH[2]}" patch="${BASH_REMATCH[3]}"
+
+  case "$bump" in
+    major) echo "${prefix}$((major + 1)).0.0" ;;
+    minor) echo "${prefix}${major}.$((minor + 1)).0" ;;
+    patch) echo "${prefix}${major}.${minor}.$((patch + 1))" ;;
+    *)
+      echo "bump_semver: invalid bump type '$bump'; expected major|minor|patch" >&2
+      return 1
+      ;;
+  esac
+}
+
+# detect_stack [dir] → node | python | go | unknown
+detect_stack() {
+  local dir="${1:-.}"
+
+  [[ -f "$dir/package.json" ]] && { echo "node"; return; }
+  [[ -f "$dir/pyproject.toml" ]] && { echo "python"; return; }
+  if [[ -d "$dir" ]]; then
+    grep -rl '__version__' "$dir" --include='*.py' -q 2>/dev/null && { echo "python"; return; }
+  fi
+  [[ -f "$dir/go.mod" ]] && { echo "go"; return; }
+
+  echo "unknown"
+}
+
+# read_version_from_source <stack> [dir]
+# Reads version from the stack's source file. For go / unknown, falls back
+# to latest git tag. For node / python, also falls back to git tag if the
+# source file is missing or unparseable.
+read_version_from_source() {
+  local stack="$1" dir="${2:-.}" ver
+
+  case "$stack" in
+    node)
+      if [[ -f "$dir/package.json" ]]; then
+        ver=$(jq -r '.version // empty' "$dir/package.json" 2>/dev/null) || true
+        if [[ -n "$ver" && "$ver" != "null" ]]; then echo "$ver"; return; fi
+      fi
+      ;;
+    python)
+      if [[ -f "$dir/pyproject.toml" ]]; then
+        ver=$(grep -oE 'version[[:space:]]*=[[:space:]]*"[^"]*"' "$dir/pyproject.toml" 2>/dev/null | head -1 | sed 's/.*"\([^"]*\)"/\1/') || true
+        if [[ -n "$ver" ]]; then echo "$ver"; return; fi
+      fi
+      local ver_file
+      ver_file=$(grep -rl '__version__[[:space:]]*=' "$dir" --include='*.py' -l 2>/dev/null | head -1) || true
+      if [[ -n "$ver_file" ]]; then
+        ver=$(grep -oE '__version__[[:space:]]*=[[:space:]]*"[^"]*"' "$ver_file" 2>/dev/null | head -1 | sed 's/.*"\([^"]*\)"/\1/') || true
+        if [[ -n "$ver" ]]; then echo "$ver"; return; fi
+      fi
+      ;;
+  esac
+
+  # git-tag fallback
+  if command -v git &>/dev/null && git -C "$dir" rev-parse --is-inside-work-tree &>/dev/null 2>&1; then
+    local tag
+    tag=$(git -C "$dir" tag --sort=-v:refname 2>/dev/null | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+$' | head -1) || true
+    if [[ -n "$tag" ]]; then echo "$tag"; return; fi
+  fi
+
+  echo "read_version_from_source: could not determine version for stack '$stack'" >&2
+  return 1
+}
+
+# compose_changelog_entry <version> <date> <added_csv> <fixed_csv> <changed_csv>
+# Produces a Keep-a-Changelog section. Sections omitted when their CSV is empty.
+compose_changelog_entry() {
+  local version="$1" date="$2" added_csv="$3" fixed_csv="$4" changed_csv="$5"
+  local output=""
+
+  output="## [${version}] - ${date}"$'\n'
+
+  if [[ -n "$added_csv" ]]; then
+    output+=$'\n'"### Added"$'\n'
+    while IFS= read -r item; do
+      item=$(echo "$item" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+      [[ -n "$item" ]] && output+="- ${item}"$'\n'
+    done < <(echo "$added_csv" | tr ',' '\n')
+  fi
+
+  if [[ -n "$fixed_csv" ]]; then
+    output+=$'\n'"### Fixed"$'\n'
+    while IFS= read -r item; do
+      item=$(echo "$item" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+      [[ -n "$item" ]] && output+="- ${item}"$'\n'
+    done < <(echo "$fixed_csv" | tr ',' '\n')
+  fi
+
+  if [[ -n "$changed_csv" ]]; then
+    output+=$'\n'"### Changed"$'\n'
+    while IFS= read -r item; do
+      item=$(echo "$item" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+      [[ -n "$item" ]] && output+="- ${item}"$'\n'
+    done < <(echo "$changed_csv" | tr ',' '\n')
+  fi
+
+  printf '%s' "$output"
+}
+
+# ─── Side-effecting helpers (NOT unit-tested) ───────────────────────────────
+
+write_version_file() {
+  local dir="$1" stack="$2" new_version="$3"
+
+  case "$stack" in
+    node)
+      jq --arg v "$new_version" '.version = $v' "$dir/package.json" >"$dir/package.json.tmp"
+      mv "$dir/package.json.tmp" "$dir/package.json"
+      ;;
+    python)
+      if [[ -f "$dir/pyproject.toml" ]]; then
+        sed -E 's/^(version[[:space:]]*=[[:space:]]*)"[^"]*"/\1"'"$new_version"'"/' "$dir/pyproject.toml" >"$dir/pyproject.toml.tmp"
+        mv "$dir/pyproject.toml.tmp" "$dir/pyproject.toml"
+        return
+      fi
+      local ver_file
+      ver_file=$(grep -rl '__version__[[:space:]]*=' "$dir" --include='*.py' -l 2>/dev/null | head -1) || true
+      if [[ -n "$ver_file" ]]; then
+        sed -E 's/(__version__[[:space:]]*=[[:space:]]*)"[^"]*"/\1"'"$new_version"'"/' "$ver_file" >"${ver_file}.tmp"
+        mv "${ver_file}.tmp" "$ver_file"
+      fi
+      ;;
+    go|unknown)
+      # no file to write — git tag is the source of truth
+      ;;
+  esac
+}
+
+tag_version() {
+  local v="$1"
+  [[ "$v" == v* ]] && echo "$v" || echo "v$v"
+}
+
+prepend_changelog_entry() {
+  local dir="$1" entry="$2"
+  local cf="$dir/CHANGELOG.md"
+  if [[ -f "$cf" ]]; then
+    local tmp
+    tmp="$(head -1 "$cf")"$'\n\n'"$entry"$'\n'"$(tail -n +2 "$cf" 2>/dev/null || true)"
+    printf '%s\n' "$tmp" > "$cf"
+  else
+    printf '%s\n\n%s\n' "# Changelog" "$entry" > "$cf"
+  fi
+}
+
+release_flow() {
+  local dir="$1" tag="$2" notes="$3" push="$4" stack="$5" bump_type="${6:-}"
+  local next_ver="$tag"
+
+  [[ "$tag" == v* ]] && next_ver="${tag#v}" || true
+
+  # SAFETY GATE 1: clean working tree
+  if ! git -C "$dir" diff --quiet 2>/dev/null; then
+    echo "ERROR: working tree is dirty. Commit or stash changes before releasing." >&2
+    return 1
+  fi
+  if ! git -C "$dir" diff --cached --quiet 2>/dev/null; then
+    echo "ERROR: index has staged changes. Commit or unstage before releasing." >&2
+    return 1
+  fi
+
+  # SAFETY GATE 2: tag must not exist
+  if git -C "$dir" tag -l "$tag" 2>/dev/null | grep -qxF "$tag"; then
+    echo "ERROR: tag '$tag' already exists. Never overwrite." >&2
+    return 1
+  fi
+
+  # Write bumped version to source files (if bump_type given)
+  if [[ -n "$bump_type" ]]; then
+    write_version_file "$dir" "$stack" "$next_ver"
+  fi
+
+  # Commit (including version-file changes if any)
+  git -C "$dir" add -A
+  git -C "$dir" commit -m "release: ${tag}" 2>/dev/null || {
+    git -C "$dir" commit --allow-empty -m "release: ${tag}"
+  }
+
+  # Annotated tag
+  git -C "$dir" tag -a "$tag" -m "$tag"
+
+  if [[ "$push" -eq 1 ]]; then
+    if ! command -v gh &>/dev/null; then
+      echo "ERROR: gh (GitHub CLI) not found. Cannot create release." >&2
+      return 1
+    fi
+    git -C "$dir" push --follow-tags
+    local gh_args=("release" "create" "$tag")
+    [[ -n "$notes" ]] && gh_args+=("--notes" "$notes")
+    gh "${gh_args[@]}"
+    echo "Pushed ${tag} + created GitHub Release" >&2
+  fi
+
+  echo "Released ${tag}" >&2
+}
+
+# ─── Guard: only run main when executed (not sourced) ───────────────────────
+if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+  return 0 2>/dev/null || true
+fi
+
+# ─── CLI entrypoint ─────────────────────────────────────────────────────────
+
+CMD=""
+BUMP_TYPE=""
+NOTES=""
+PUSH=0
+DIR="."
+
+_VER_ARG=""
+_DATE_ARG=""
+_ADDED_ARG=""
+_FIXED_ARG=""
+_CHANGED_ARG=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --current) CMD="current"; shift ;;
+    --bump) CMD="bump"; BUMP_TYPE="$2"; shift 2 ;;
+    --release)
+      CMD="release"
+      shift
+      if [[ $# -gt 0 && ! "$1" =~ ^-- ]]; then
+        BUMP_TYPE="$1"; shift
+      fi
+      ;;
+    --push) PUSH=1; shift ;;
+    --notes) NOTES="$2"; shift 2 ;;
+    --changelog) CMD="changelog"; shift ;;
+    --version) _VER_ARG="$2"; shift 2 ;;
+    --date)    _DATE_ARG="$2"; shift 2 ;;
+    --added)   _ADDED_ARG="$2"; shift 2 ;;
+    --fixed)   _FIXED_ARG="$2"; shift 2 ;;
+    --changed) _CHANGED_ARG="$2"; shift 2 ;;
+    -C|--dir)  DIR="$2"; shift 2 ;;
+    --help|-h) usage ;;
+    *)
+      echo "ERROR: unknown flag '$1'" >&2
+      usage
+      ;;
+  esac
+done
+
+if [[ -z "$CMD" ]]; then
+  echo "ERROR: no command specified. Use --current, --bump, --release, or --changelog." >&2
+  usage
+fi
+
+if [[ ! -d "$DIR" ]]; then
+  echo "ERROR: directory '$DIR' does not exist." >&2
+  exit 1
+fi
+
+case "$CMD" in
+  current)
+    STACK=$(detect_stack "$DIR")
+    CUR=$(read_version_from_source "$STACK" "$DIR")
+    echo "stack=${STACK} version=${CUR}"
+    ;;
+
+  bump)
+    if [[ -z "$BUMP_TYPE" ]]; then
+      echo "ERROR: --bump requires major|minor|patch" >&2
+      exit 1
+    fi
+    STACK=$(detect_stack "$DIR")
+    CUR=$(read_version_from_source "$STACK" "$DIR")
+    NEXT=$(bump_semver "$CUR" "$BUMP_TYPE")
+    echo "${CUR} -> ${NEXT} [${STACK}]" >&2
+
+    write_version_file "$DIR" "$STACK" "$NEXT"
+    if [[ "$STACK" == "go" || "$STACK" == "unknown" ]]; then
+      echo "(no source file — version tracked by git tag)" >&2
+    fi
+    ;;
+
+  release)
+    STACK=$(detect_stack "$DIR")
+    CUR=$(read_version_from_source "$STACK" "$DIR")
+
+    if [[ -n "$BUMP_TYPE" ]]; then
+      NEXT=$(bump_semver "$CUR" "$BUMP_TYPE")
+    else
+      NEXT="$CUR"
+    fi
+
+    TAG=$(tag_version "$NEXT")
+    release_flow "$DIR" "$TAG" "$NOTES" "$PUSH" "$STACK" "$BUMP_TYPE"
+    ;;
+
+  changelog)
+    STACK=$(detect_stack "$DIR")
+    VER="${_VER_ARG:-}"
+    DATE="${_DATE_ARG:-}"
+
+    if [[ -z "$VER" ]]; then
+      VER=$(read_version_from_source "$STACK" "$DIR") || true
+      [[ -z "$VER" ]] && { echo "ERROR: could not determine version for changelog" >&2; exit 1; }
+    fi
+    if [[ -z "$DATE" ]]; then
+      DATE=$(date -u +%Y-%m-%d)
+    fi
+
+    ENTRY=$(compose_changelog_entry "$VER" "$DATE" "$_ADDED_ARG" "$_FIXED_ARG" "$_CHANGED_ARG")
+    prepend_changelog_entry "$DIR" "$ENTRY"
+    echo "Updated CHANGELOG.md with [${VER}] entry" >&2
+    ;;
+esac

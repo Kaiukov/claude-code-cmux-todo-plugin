@@ -3,6 +3,11 @@
 All notable changes to this project are documented here.
 This project adheres to semantic versioning.
 
+## [Unreleased]
+
+### Added
+- `board-release` — stack-agnostic SemVer release helper with safety gates (#28).
+
 ## [0.3.0] - 2026-06-09
 
 ### Added

@@ -21,6 +21,7 @@ You **coordinate**, you do not implement.
   **Single exception:** write code yourself ONLY when the user explicitly asks
   you to. Absent an explicit request, always delegate; a hand-edit without such
   a request is a rule violation.
+- **Model tiers:** see `docs/delegation-policy.md` for the current delegation model tiers and rules.
 - **Never merge on an agent's self-report.** Run the hard gate yourself (the
   project's tests + `claude plugin validate .` / typecheck) before merging.
   Mocks pass while live breaks — always do the real check.

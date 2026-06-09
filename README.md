@@ -108,6 +108,7 @@ by status.
 | `/board-add-task`  | Add a local task without a GitHub issue. Local tasks live in `.tasks/local.json` and never touch GitHub. Local task status can be updated via `board-add --set <id> --status <status>`. |
 | `/board-pull`       | Fetch GitHub issues and render the local board. Supports `--strategy all-open` (default, one API call + local filter) and `--strategy labels` (per-label queries unioned). |
 | `/board-sync`       | Write ONE issue's status back to GitHub by swapping its canonical label. Idempotent, preserves non-canonical labels. |
+| `/board-release`    | Bump SemVer versions, create git tags, and publish GitHub Releases with opt-in network safety gates. |
 | `/board-plan`       | Mirror `ready` tasks into Claude's built-in task list.     |
 | `/board-run-ready`  | Dispatch ready tasks to cmux panes for parallel execution. |
 | `/board`            | Show the board flow and operating rules.                   |

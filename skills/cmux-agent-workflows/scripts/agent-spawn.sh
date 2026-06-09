@@ -42,6 +42,19 @@ SPLIT="${ARGS[0]}"; WT="${ARGS[1]}"; MODEL="${ARGS[2]}"; LABEL="${ARGS[3]:-}"
 EXTRA=("${ARGS[@]:4}")
 [[ -d "$WT" ]] || die "worktree not found: $WT"
 
+# Resolve tier names (flash|pro|review|simple|top) via board-config.
+# Raw model ids (e.g. "deepseek/deepseek-v4-pro") pass through unchanged.
+case "$MODEL" in
+  flash|pro|review|simple|top)
+    REPO_ROOT="$(cd "$DIR/../../.." && pwd)"
+    if ! RESOLVED="$(REPO_ROOT="$REPO_ROOT" "$REPO_ROOT/bin/board-config" --get-model "$MODEL" 2>/dev/null)"; then
+      die "board-config --get-model $MODEL failed"
+    fi
+    log "resolved tier $MODEL → $RESOLVED"
+    MODEL="$RESOLVED"
+    ;;
+esac
+
 # Normalize the model to the CANONICAL provider per docs/models.json. The paid
 # opencode gateway for DeepSeek is `opencode-go/…`; the bare name or a direct
 # `deepseek/…` provider hits a different (unfunded) account. Rewrite both forms

@@ -104,16 +104,11 @@ $S/agent-kill.sh "$SURF" --agent opencode --close   # 7. stop agent, close split
   never repeat across concurrent agents and you never pick one by hand.
 - **Hard gate before merge**: run `verify.sh` (or `verify-ts.sh` for TS projects).
   Never merge on the agent's self-report.
-- **Model tiers** are configurable (slice B will wire `.tasks/config.json`).
-  For now defaults are passed as the `<model>` arg:
-  - `deepseek/deepseek-v4-flash` — mechanical (lint/imports/renames)
-  - `opencode-go/deepseek-v4-pro`  — reasoning (default for most work)
-  - `gpt-5.4-mini` (reasoning=high) — codex IMPLEMENTATION tier (complex /
-    finance-critical code). reasoning=low for simple code / docs / routine.
-  - `gpt-5.4` (reasoning=high)      — codex REVIEW / bug-catching tier — reserved
-    for review passes on complex / high-stakes work (limited weekly budget).
-    Pass `-c model_reasoning_effort=high` as an extra arg.
-    (`gpt-5.5` = top tier, ONLY on explicit user request.)
+- **Model tiers** are config-driven via `.tasks/config.json` (see `bin/board-config --get-model <tier>`).
+  Five tiers are defined — `flash` (mechanical), `pro` (reasoning), `review`, `simple`, and `top` —
+  each mapped to a model id in the config or falling back to built-in defaults.
+  Pass the tier name directly as the `<model>` arg to `agent-spawn.sh`; it resolves
+  automatically. Raw model ids still work unchanged.
 
 ## Codex-specific gotchas (opencode agents are unaware of these)
 

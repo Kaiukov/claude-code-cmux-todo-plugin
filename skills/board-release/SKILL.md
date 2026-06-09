@@ -32,8 +32,9 @@ Version sources (read AND written):
 | -------- | ---------------------------------------- | -------------------- |
 | node     | `package.json` → `.version`              | `package.json`       |
 | python   | `pyproject.toml` → `version = "..."`    | `pyproject.toml` (or `__version__` file) |
-| go       | latest git tag (`vX.Y.Z`)               | *(git tag only)*     |
-| unknown  | latest git tag (`vX.Y.Z`)               | *(git tag only)*     |
+| go            | latest git tag (`vX.Y.Z`)               | *(git tag only)*     |
+| claude-plugin | `.claude-plugin/plugin.json` → `.version` | `.claude-plugin/plugin.json` |
+| unknown       | latest git tag (`vX.Y.Z`)               | *(git tag only)*     |
 
 ## Safety gates (release flow)
 

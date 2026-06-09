@@ -52,7 +52,7 @@ bump_semver() {
   esac
 }
 
-# detect_stack [dir] → node | python | go | unknown
+# detect_stack [dir] → node | python | go | claude-plugin | unknown
 detect_stack() {
   local dir="${1:-.}"
 
@@ -62,6 +62,7 @@ detect_stack() {
     grep -rl '__version__' "$dir" --include='*.py' -q 2>/dev/null && { echo "python"; return; }
   fi
   [[ -f "$dir/go.mod" ]] && { echo "go"; return; }
+  [[ -f "$dir/.claude-plugin/plugin.json" ]] && { echo "claude-plugin"; return; }
 
   echo "unknown"
 }
@@ -90,6 +91,12 @@ read_version_from_source() {
       if [[ -n "$ver_file" ]]; then
         ver=$(grep -oE '__version__[[:space:]]*=[[:space:]]*"[^"]*"' "$ver_file" 2>/dev/null | head -1 | sed 's/.*"\([^"]*\)"/\1/') || true
         if [[ -n "$ver" ]]; then echo "$ver"; return; fi
+      fi
+      ;;
+    claude-plugin)
+      if [[ -f "$dir/.claude-plugin/plugin.json" ]]; then
+        ver=$(jq -r '.version // empty' "$dir/.claude-plugin/plugin.json" 2>/dev/null) || true
+        if [[ -n "$ver" && "$ver" != "null" ]]; then echo "$ver"; return; fi
       fi
       ;;
   esac
@@ -162,6 +169,10 @@ write_version_file() {
         sed -E 's/(__version__[[:space:]]*=[[:space:]]*)"[^"]*"/\1"'"$new_version"'"/' "$ver_file" >"${ver_file}.tmp"
         mv "${ver_file}.tmp" "$ver_file"
       fi
+      ;;
+    claude-plugin)
+      jq --arg v "$new_version" '.version = $v' "$dir/.claude-plugin/plugin.json" >"$dir/.claude-plugin/plugin.json.tmp"
+      mv "$dir/.claude-plugin/plugin.json.tmp" "$dir/.claude-plugin/plugin.json"
       ;;
     go|unknown)
       # no file to write — git tag is the source of truth

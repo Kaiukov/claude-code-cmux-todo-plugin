@@ -139,6 +139,12 @@ echo '__version__ = "0.4.0"' > "$TMPDIR/mixed-py/app.py"
 result=$(detect_stack "$TMPDIR/mixed-py")
 if [[ "$result" == "python" ]]; then echo "PASS"; else echo "FAIL: got '$result'"; failures=$((failures+1)); fi
 
+echo "=== Test 21b: detect claude-plugin via .claude-plugin/plugin.json ==="
+mkdir -p "$TMPDIR/plugin-proj/.claude-plugin"
+echo '{"version":"0.3.0"}' > "$TMPDIR/plugin-proj/.claude-plugin/plugin.json"
+result=$(detect_stack "$TMPDIR/plugin-proj")
+if [[ "$result" == "claude-plugin" ]]; then echo "PASS"; else echo "FAIL: got '$result'"; failures=$((failures+1)); fi
+
 # ─── read_version_from_source tests ─────────────────────────────────────────
 
 echo "=== Test 22: read node version from package.json ==="
@@ -152,6 +158,10 @@ if [[ "$result" == "0.1.0" ]]; then echo "PASS"; else echo "FAIL: got '$result'"
 echo "=== Test 24: read python version from __version__ ==="
 result=$(read_version_from_source "python" "$TMPDIR/python-ver")
 if [[ "$result" == "0.2.0" ]]; then echo "PASS"; else echo "FAIL: got '$result'"; failures=$((failures+1)); fi
+
+echo "=== Test 24b: read claude-plugin version from plugin.json ==="
+result=$(read_version_from_source "claude-plugin" "$TMPDIR/plugin-proj")
+if [[ "$result" == "0.3.0" ]]; then echo "PASS"; else echo "FAIL: got '$result'"; failures=$((failures+1)); fi
 
 echo "=== Test 25: go falls back to git tag ==="
 mkdir -p "$TMPDIR/git-tag-fallback"

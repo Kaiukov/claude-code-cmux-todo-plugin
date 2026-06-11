@@ -80,6 +80,9 @@ For each task you actually execute, run the orchestrator loop:
    validation yourself. Do not trust the agent's word.
 6. **Live-check** anything real (deploy / `--remote` / migration) yourself.
 7. **Merge** (squash) + clean up the worktree, branch, and agent pane.
+8. **Audit panes** — run `agent-audit.sh` (dry-run first, then `--apply`) to
+   reclaim idle/finished agent surfaces that outlived their work. Do this after
+   `pr-finish.sh` and at round end.
 
 ### Task spec format (`.task-spec.md`)
 
@@ -115,6 +118,7 @@ Bundled at `skills/cmux-agent-workflows/scripts/`:
 - `verify.sh` / `verify-ts.sh` — hard gate
 - `pr-finish.sh` — merge + cleanup
 - `agent-kill.sh` — tear down pane
+- `agent-audit.sh` — audit open panes, reclaim idle/finished agent surfaces (dry-run by default; `--apply` to close)
 - `agent-notify.sh` — emit CTB-DONE payload (agent's final step)
 
 ## On invocation

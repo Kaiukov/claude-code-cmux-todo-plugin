@@ -11,6 +11,7 @@ This project adheres to semantic versioning.
 - `--quiet` / `LOG_LEVEL` gate for `lib.sh log()` — background poll/spawn scripts can suppress progress chatter while still emitting their final result line (#51).
 
 ### Changed
+- Delegation cycle consolidated into a single canonical `docs/ORCHESTRATOR.md`; board-run-ready and cmux-agent-workflows skills link to it instead of duplicating the steps (#53).
 - Orchestrator no longer reads `TODO.md`; counts/next-ready come from `board-status`. `TODO.md` is still generated as a human reference (#52).
 
 ## [0.4.1] - 2026-06-11

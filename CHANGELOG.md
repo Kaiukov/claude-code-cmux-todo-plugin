@@ -5,7 +5,7 @@ This project adheres to semantic versioning.
 
 ## [Unreleased]
 
-## [0.5.0] - 2026-06-11
+## [0.5.0] - 2026-06-12
 
 ### Added
 - Codex plugin adapter (#40).

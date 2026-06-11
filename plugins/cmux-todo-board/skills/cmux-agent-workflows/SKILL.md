@@ -77,7 +77,7 @@ directly.
 
 ## Standard delegation cycle
 
-See the [canonical delegation cycle in `docs/ORCHESTRATOR.md`](../../docs/ORCHESTRATOR.md#cmux-delegation-cycle) for the full worktree→spawn→dispatch→poll→verify→merge→cleanup flow. The per-script reference above documents each script's interface in detail. The bash example has been removed to avoid drift — refer to the canonical doc instead.
+See the [canonical delegation cycle in `docs/ORCHESTRATOR.md`](../../docs/ORCHESTRATOR.md#cmux-delegation-cycle) for the full worktree→spawn→dispatch→poll→verify→merge→cleanup flow. After dispatch, the orchestrator MUST enter [standby mode](../../docs/ORCHESTRATOR.md#standby-after-dispatch) — no active screen polling, no typing into the agent pane until completion signal or user nudge. The per-script reference above documents each script's interface in detail. The bash example has been removed to avoid drift — refer to the canonical doc instead.
 
 ## Conventions (encoded in the scripts)
 

@@ -20,6 +20,7 @@ This project adheres to semantic versioning.
 - `docs/ORCHESTRATOR.md` symbol-compressed ~20–30% (bullet-dense) with no loss of rules; delegation-cycle anchor preserved (#55).
 - Delegation cycle consolidated into a single canonical `docs/ORCHESTRATOR.md`; board-run-ready and cmux-agent-workflows skills link to it instead of duplicating the steps (#53).
 - Orchestrator no longer reads `TODO.md`; counts/next-ready come from `board-status`. `TODO.md` is still generated as a human reference (#52).
+- **Standby after dispatch** — new canonical rule in `docs/ORCHESTRATOR.md#standby-after-dispatch`: orchestrator must not actively poll the agent pane or type into it after dispatch. Cross-referenced from board-onboard-lite, board-run-ready, cmux-agent-workflows, and codex-port (#70).
 
 ## [0.4.1] - 2026-06-11
 

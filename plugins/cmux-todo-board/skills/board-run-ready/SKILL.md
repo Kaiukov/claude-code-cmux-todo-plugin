@@ -78,6 +78,11 @@ Never trust an agent's self-report. Run the project's tests **and**
 - **FALLBACK:** `poll-push.sh` (branch polling). A missed event never strands
   a task; the fallback catches completions the signal missed.
 
+## Standby after dispatch
+
+After dispatching, enter standby — do not read or type into the agent pane.
+See the [canonical standby rule in `docs/ORCHESTRATOR.md`](../../docs/ORCHESTRATOR.md#standby-after-dispatch).
+
 ## MVP note
 
 Status is NOT written back to GitHub labels. That is #5 sync-back.

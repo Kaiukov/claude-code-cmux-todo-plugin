@@ -44,6 +44,7 @@ while [[ $# -gt 0 ]]; do
     --task)    TASK="$2"; shift 2 ;;
     --event-timeout) EVENT_TIMEOUT="$2"; shift 2 ;;
     --total-timeout) TOTAL_TIMEOUT="$2"; shift 2 ;;
+    --quiet) LOG_LEVEL=quiet; shift ;;
     *) shift ;;
   esac
 done

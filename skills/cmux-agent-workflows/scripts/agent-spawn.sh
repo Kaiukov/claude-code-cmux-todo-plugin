@@ -29,6 +29,7 @@ while (( $# > 0 )); do
   case "$1" in
     --agent) AGENT_KIND="$2"; shift 2 ;;
     --agent=*) AGENT_KIND="${1#--agent=}"; shift ;;
+    --quiet) LOG_LEVEL=quiet; shift ;;
     -h|--help)
       sed -n '2,16p' "$0"; exit 0 ;;
     *) ARGS+=("$1"); shift ;;

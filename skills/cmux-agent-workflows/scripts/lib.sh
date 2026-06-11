@@ -3,7 +3,7 @@
 set -euo pipefail
 
 die() { echo "ERROR: $*" >&2; exit 1; }
-log() { echo ">> $*" >&2; }
+log() { [[ "${LOG_LEVEL:-info}" == "quiet" ]] && return 0; echo ">> $*" >&2; }
 
 # All surface refs currently in the cmux tree (across all windows).
 # Surface leaf objects carry their ref in `.ref` (e.g. "surface:169") and a `.tty`.

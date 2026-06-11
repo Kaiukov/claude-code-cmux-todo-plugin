@@ -66,7 +66,7 @@ POLL_EOF
   # ── stub lib.sh ──
   cat > "$TMPENV/lib.sh" <<'LIB_EOF'
 die() { echo "ERROR: $*" >&2; exit 1; }
-log() { echo ">>  $*" >&2; }
+log() { [[ "${LOG_LEVEL:-info}" == "quiet" ]] && return 0; echo ">>  $*" >&2; }
 LIB_EOF
 
   # ── copy poll-wait.sh so DIR resolves to TMPENV ──
@@ -233,6 +233,32 @@ assert_output_contains "$output" "COMPLETE surface=surface:177 branch=feat/test-
 echo "--- Test G: streaming cmux + SIGPIPE → ev.result IS written ---"
 output=$(run_in_mock_env "Test G: streaming sigpipe" test_streaming_sigpipe 2>&1) || true
 assert_output_contains "$output" "COMPLETE surface=surface:178 branch=feat/test-sigpipe method=event" "streaming sigpipe → method=event"
+
+# ── Test H: --quiet suppresses log() stderr, keeps COMPLETE/TIMEOUT on stdout ──
+# Missing-plugin path produces WARN log output without --quiet. With --quiet,
+# WARN must be suppressed, but COMPLETE must still be emitted.
+test_quiet_suppress_log() {
+  local TMPENV="$1"
+  rm -f "$TMPENV/.config/opencode/plugins/cmux-session.js"
+  CMUX_EVENT_FILE="" CMUX_EVENT_SLEEP=30 \
+    POLL_RESULT=PUSHED POLL_DELAY=0 \
+    "$TMPENV/poll-wait.sh" \
+      --quiet --surface surface:179 --branch feat/test-quiet \
+      --event-timeout 2 --total-timeout 30
+}
+
+echo "--- Test H: --quiet suppresses log() stderr, keeps COMPLETE on stdout ---"
+output=$(run_in_mock_env "Test H: quiet gate" test_quiet_suppress_log 2>&1) || true
+# WARN must NOT appear (log() suppressed)
+if echo "$output" | grep -q "WARN"; then
+  echo "FAIL (quiet-gate): WARN message leaked in quiet mode"
+  echo "  got: $output"
+  _FAILURES=$((_FAILURES + 1))
+else
+  echo "PASS (quiet-gate): no WARN in quiet mode"
+fi
+# COMPLETE must still appear (stdout result line preserved)
+assert_output_contains "$output" "COMPLETE.*method=poll" "quiet mode still emits COMPLETE"
 
 echo ""
 if [[ $_FAILURES -eq 0 ]]; then

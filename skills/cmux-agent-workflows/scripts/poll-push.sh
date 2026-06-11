@@ -7,9 +7,15 @@
 #   poll-push.sh feat/cf-108 30 1800
 # Prints "PUSHED <sha>" and the PR (if any) when it detects a new/changed tip.
 set -euo pipefail
+# Filter --quiet flag before positional parsing
+_args=()
+for _a in "$@"; do
+  if [[ "$_a" == "--quiet" ]]; then LOG_LEVEL=quiet; else _args+=("$_a"); fi
+done
+set -- "${_args[@]}"
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; source "$DIR/lib.sh"
 
-[[ $# -ge 1 ]] || die "usage: poll-push.sh <branch> [interval] [timeout] [repo-root]"
+[[ $# -ge 1 ]] || die "usage: poll-push.sh [--quiet] <branch> [interval] [timeout] [repo-root]"
 BRANCH="$1"; INTERVAL="${2:-30}"; TIMEOUT="${3:-1800}"; REPO="${4:-$(git rev-parse --show-toplevel)}"
 
 baseline="$(git -C "$REPO" ls-remote origin "$BRANCH" | awk '{print $1}')"

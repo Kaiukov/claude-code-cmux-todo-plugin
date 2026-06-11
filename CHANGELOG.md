@@ -7,6 +7,7 @@ This project adheres to semantic versioning.
 
 ### Added
 - cmux-agent-workflows-lite skill — compact delegation reference loaded per session instead of the full ~9.7 KB skill (#49).
+- `--quiet` / `LOG_LEVEL` gate for `lib.sh log()` — background poll/spawn scripts can suppress progress chatter while still emitting their final result line (#51).
 
 ## [0.4.1] - 2026-06-11
 

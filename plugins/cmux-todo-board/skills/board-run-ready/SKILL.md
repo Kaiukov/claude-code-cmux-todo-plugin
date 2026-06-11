@@ -62,7 +62,7 @@ materialised issue body files.
 
 ### Steps 1–8
 
-See the [canonical delegation cycle in `docs/ORCHESTRATOR.md`](../docs/ORCHESTRATOR.md#cmux-delegation-cycle). The scripts at `skills/cmux-agent-workflows/scripts/` map one-to-one to the steps there. Only the procedural loop is shared — all board-run-ready–specific constraints (below) still apply.
+See the [canonical delegation cycle in `docs/ORCHESTRATOR.md`](../../docs/ORCHESTRATOR.md#cmux-delegation-cycle). The scripts at `skills/cmux-agent-workflows/scripts/` map one-to-one to the steps there. Only the procedural loop is shared — all board-run-ready–specific constraints (below) still apply.
 
 ## Verification (hard gate)
 

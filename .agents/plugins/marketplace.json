@@ -1,0 +1,20 @@
+{
+  "name": "kaiukov-tools",
+  "interface": {
+    "displayName": "Kaiukov Tools"
+  },
+  "plugins": [
+    {
+      "name": "cmux-todo-board",
+      "source": {
+        "source": "local",
+        "path": "."
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

@@ -6,6 +6,7 @@ This project adheres to semantic versioning.
 ## [Unreleased]
 
 ### Added
+- Codex plugin adapter (#40).
 - `board-status --json --ready-tasks N` — counts + next-N ready tasks in one compact call so the orchestrator/board-plan skip the full board.json read (#50).
 - cmux-agent-workflows-lite skill — compact delegation reference loaded per session instead of the full ~9.7 KB skill (#49).
 - `--quiet` / `LOG_LEVEL` gate for `lib.sh log()` — background poll/spawn scripts can suppress progress chatter while still emitting their final result line (#51).

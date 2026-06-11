@@ -5,6 +5,9 @@ This project adheres to semantic versioning.
 
 ## [Unreleased]
 
+### Added
+- cmux-agent-workflows-lite skill — compact delegation reference loaded per session instead of the full ~9.7 KB skill (#49).
+
 ## [0.4.1] - 2026-06-11
 
 ### Added

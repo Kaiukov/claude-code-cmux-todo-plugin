@@ -104,6 +104,7 @@ by status.
 |---------------------|------------------------------------------------------------|
 | `/board-onboard`    | Run FIRST in a clean session — switch into orchestrator mode and load all board + cmux operating instructions. |
 | `/board-onboard-lite` | Compact orchestrator bootstrap for token-constrained sessions. Full rules at `docs/ORCHESTRATOR.md`. |
+| `/cmux-agent-workflows-lite` | Compact delegation reference for cmux agent orchestration — script catalog, delegation cycle. Full reference at `skills/cmux-agent-workflows/SKILL.md`. |
 | `/board-init`       | Initialize a repo with canonical board status labels. Run once per repo before board-pull. |
 | `/board-create-issue` | Turn a raw task description into a structured GitHub issue and create it. |
 | `/board-add-task`  | Add a local task without a GitHub issue. Local tasks live in `.tasks/local.json` and never touch GitHub. Local task status can be updated via `board-add --set <id> --status <status>`. |

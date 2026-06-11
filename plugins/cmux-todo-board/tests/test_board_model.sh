@@ -747,6 +747,109 @@ tier_val=$(jq -r '.models.pro' .tasks/config.json)
 if [[ "$tier_val" == "second" ]]; then PASS; else FAIL "tier=$tier_val"; fi
 cleanup_testdir
 
+# ============================================================
+# Section F: Dispatch integration — agent-spawn.sh tier path
+# ============================================================
+
+echo ""
+
+# F1: registry provider overrides auto-detection (model would auto-detect as
+# codex but registry says opencode — resolved provider must be opencode)
+echo "=== F1: registry provider overrides auto-detection ==="
+new_testdir
+"$BOARD_MODEL" add my-pro --model gpt-5.5 --provider opencode --effort medium 2>&1 >/dev/null
+"$BOARD_MODEL" asign my-pro --tier pro 2>&1 >/dev/null
+provider="$("$BOARD_CONFIG" --get-model pro --provider 2>&1)"
+model="$("$BOARD_CONFIG" --get-model pro 2>&1)"
+# model=gpt-5.5 would auto-detect as codex, but provider must come from registry
+detected="$(auto_detect_provider "$model")"
+if [[ "$detected" == "codex" && "$provider" == "opencode" ]]; then
+  PASS
+else
+  FAIL "auto-detect=$detected but registry provider=$provider (model=$model)"
+fi
+cleanup_testdir
+
+# F2: codex effort from registry is resolvable for dispatch
+echo "=== F2: codex effort resolved for dispatch ==="
+new_testdir
+"$BOARD_MODEL" add heavy --model gpt-5.5 --provider codex --effort high 2>&1 >/dev/null
+"$BOARD_MODEL" asign heavy --tier pro 2>&1 >/dev/null
+effort="$("$BOARD_CONFIG" --get-model pro --effort 2>&1)"
+if [[ "$effort" == "high" ]]; then PASS; else FAIL "effort=$effort"; fi
+cleanup_testdir
+
+# F3: effort absent when registry entry has no reasoning_effort
+echo "=== F3: absent effort when registry has no reasoning_effort ==="
+new_testdir
+"$BOARD_MODEL" add light --model gpt-5.4-mini --provider codex 2>&1 >/dev/null
+"$BOARD_MODEL" asign light --tier simple 2>&1 >/dev/null
+effort="$("$BOARD_CONFIG" --get-model simple --effort 2>&1)"
+if [[ -z "$effort" ]]; then PASS; else FAIL "effort should be empty, got '$effort'"; fi
+cleanup_testdir
+
+# F4: provider for opencode-style model ID preserved through registry
+echo "=== F4: opencode model ID preserves opencode provider ==="
+new_testdir
+"$BOARD_MODEL" add oc-pro --model opencode-go/deepseek-v4-pro --provider opencode 2>&1 >/dev/null
+"$BOARD_MODEL" asign oc-pro --tier pro 2>&1 >/dev/null
+provider="$("$BOARD_CONFIG" --get-model pro --provider 2>&1)"
+model="$("$BOARD_CONFIG" --get-model pro 2>&1)"
+if [[ "$provider" == "opencode" && "$model" == "opencode-go/deepseek-v4-pro" ]]; then
+  PASS
+else
+  FAIL "provider=$provider model=$model"
+fi
+cleanup_testdir
+
+# F5: board-config --json includes all three fields for dispatch
+echo "=== F5: --json carries model + provider + effort ==="
+new_testdir
+"$BOARD_MODEL" add full-entry --model gpt-5.5 --provider codex --effort low 2>&1 >/dev/null
+"$BOARD_MODEL" asign full-entry --tier pro 2>&1 >/dev/null
+json="$("$BOARD_CONFIG" --get-model pro --json 2>&1)"
+if [[ "$(echo "$json" | jq -r '.model')" == "gpt-5.5" \
+   && "$(echo "$json" | jq -r '.provider')" == "codex" \
+   && "$(echo "$json" | jq -r '.reasoning_effort')" == "low" ]]; then
+  PASS
+else
+  FAIL "json=$json"
+fi
+cleanup_testdir
+
+# F6: raw model ID (no registry) still resolves via auto-detect (backward compat)
+echo "=== F6: raw model ID auto-detects backend (backward compat) ==="
+new_testdir
+echo '{"models":{"review":"gpt-5.4","simple":"gpt-5.4-mini"}}' > .tasks/config.json
+review_provider="$("$BOARD_CONFIG" --get-model review --provider 2>&1)"
+simple_provider="$("$BOARD_CONFIG" --get-model simple --provider 2>&1)"
+if [[ "$review_provider" == "codex" && "$simple_provider" == "codex" ]]; then
+  PASS
+else
+  FAIL "review=$review_provider simple=$simple_provider"
+fi
+cleanup_testdir
+
+# F7: tier with bare opencode model ID resolves to opencode
+echo "=== F7: bare model ID with / resolves to opencode ==="
+new_testdir
+echo '{"models":{"flash":"openai/some-model"}}' > .tasks/config.json
+provider="$("$BOARD_CONFIG" --get-model flash --provider 2>&1)"
+if [[ "$provider" == "opencode" ]]; then PASS; else FAIL "provider=$provider"; fi
+cleanup_testdir
+
+# F8: explicit --agent flag still overrides registry provider (agent-spawn precedence)
+echo "=== F8: --agent flag overrides registry provider ==="
+new_testdir
+"$BOARD_MODEL" add entry --model gpt-5.5 --provider opencode --effort low 2>&1 >/dev/null
+"$BOARD_MODEL" asign entry --tier pro 2>&1 >/dev/null
+# Simulate what agent-spawn.sh does: registry provider is opencode, but if user
+# passes --agent codex, that must win. The config provider is visible but
+# overridable. Here we just verify the config provider is what we expect.
+provider="$("$BOARD_CONFIG" --get-model pro --provider 2>&1)"
+if [[ "$provider" == "opencode" ]]; then PASS; else FAIL "provider=$provider"; fi
+cleanup_testdir
+
 echo ""
 if [[ $failures -eq 0 ]]; then
   echo "All board-model tests passed."

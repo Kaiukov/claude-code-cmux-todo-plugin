@@ -45,6 +45,11 @@ EXTRA=("${ARGS[@]:4}")
 
 # Resolve tier names (flash|pro|review|simple|top) via board-config.
 # Raw model ids (e.g. "deepseek/deepseek-v4-pro") pass through unchanged.
+# When a registry entry provides a provider override or reasoning effort,
+# consume those flags as well so dispatch uses the configured backend and
+# forwards the effort to the agent launch command.
+RESOLVED_PROVIDER=""
+RESOLVED_EFFORT=""
 case "$MODEL" in
   flash|pro|review|simple|top)
     REPO_ROOT="$(cd "$DIR/../../.." && pwd)"
@@ -52,6 +57,14 @@ case "$MODEL" in
       die "board-config --get-model $MODEL failed"
     fi
     log "resolved tier $MODEL → $RESOLVED"
+    if PROVIDER="$(REPO_ROOT="$REPO_ROOT" "$REPO_ROOT/bin/board-config" --get-model "$MODEL" --provider 2>/dev/null)" && [[ -n "$PROVIDER" ]]; then
+      RESOLVED_PROVIDER="$PROVIDER"
+      log "resolved provider: $RESOLVED_PROVIDER"
+    fi
+    if EFFORT="$(REPO_ROOT="$REPO_ROOT" "$REPO_ROOT/bin/board-config" --get-model "$MODEL" --effort 2>/dev/null)" && [[ -n "$EFFORT" ]]; then
+      RESOLVED_EFFORT="$EFFORT"
+      log "resolved effort: $RESOLVED_EFFORT"
+    fi
     MODEL="$RESOLVED"
     ;;
 esac
@@ -65,9 +78,12 @@ case "$MODEL" in
   deepseek/deepseek-v4-pro|deepseek/deepseek-v4-flash) MODEL="opencode-go/${MODEL#deepseek/}"; log "normalized provider deepseek→opencode-go: $MODEL" ;;
 esac
 
-# Resolve agent kind: explicit flag wins, else auto-detect from the model.
+# Resolve agent kind: explicit --agent flag > registry provider > auto-detect.
 if [[ -n "$AGENT_KIND" ]]; then
   agent_kind_supported "$AGENT_KIND" || die "unknown --agent: $AGENT_KIND  (supported: ${AGENT_KINDS[*]})"
+elif [[ -n "$RESOLVED_PROVIDER" ]]; then
+  agent_kind_supported "$RESOLVED_PROVIDER" || die "unknown provider from board-config: $RESOLVED_PROVIDER  (supported: ${AGENT_KINDS[*]})"
+  AGENT_KIND="$RESOLVED_PROVIDER"
 else
   AGENT_KIND="$(agent_kind_detect "$MODEL")"
 fi
@@ -78,6 +94,21 @@ case "$AGENT_KIND" in
   opencode) command -v opencode >/dev/null || die "opencode not on PATH" ;;
   codex)    command -v codex    >/dev/null || die "codex not on PATH" ;;
 esac
+
+# Forward registry-resolved reasoning effort to the codex launch command.
+# Only applied when (a) an effort was resolved from board-config, (b) the
+# agent is codex, and (c) the caller hasn't already passed an explicit
+# model_reasoning_effort in the extra positional args.
+if [[ -n "$RESOLVED_EFFORT" && "$AGENT_KIND" == "codex" ]]; then
+  already_has_effort=""
+  for a in "${EXTRA[@]}"; do
+    [[ "$a" == "-c" || "$a" == "model_reasoning_effort"* ]] && already_has_effort=1 && break
+  done
+  if [[ -z "$already_has_effort" ]]; then
+    EXTRA+=("-c" "model_reasoning_effort=$RESOLVED_EFFORT")
+    log "auto-added -c model_reasoning_effort=$RESOLVED_EFFORT"
+  fi
+fi
 
 BAND="$(pick_band)"
 NAME="$BAND${LABEL:+ $LABEL}"

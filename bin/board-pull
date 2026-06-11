@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<EOF
-Usage: board-pull [--repo OWNER/REPO] [--label LABELS] [--assignee USER] [--milestone TITLE] [--strategy all-open|labels]
+Usage: board-pull [--repo OWNER/REPO] [--label LABELS] [--assignee USER] [--milestone TITLE] [--strategy all-open|labels] [--with-body]
 
 Fetch GitHub issues and write .tasks/issues.json.
 
@@ -16,6 +16,7 @@ Filters:
   --milestone TITLE    Filter by milestone title (AND-combined with labels/assignee).
   --strategy STRATEGY  Pull strategy: all-open (default) — one API call + local filter;
                        labels — per-label queries unioned.
+  --with-body          Include issue body in the fetched JSON fields (default: omit body).
 
 At least one of --label, --assignee, or --milestone must be provided
 (or already present in the defaults) to scope the pull.
@@ -63,6 +64,7 @@ LABEL="inbox,ready,in-progress,needs-review,blocked,needs-info,done"
 ASSIGNEE=""
 MILESTONE=""
 STRATEGY="all-open"
+WITH_BODY=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -71,6 +73,7 @@ while [[ $# -gt 0 ]]; do
     --assignee) ASSIGNEE="$2"; shift 2 ;;
     --milestone) MILESTONE="$2"; shift 2 ;;
     --strategy) STRATEGY="$2"; shift 2 ;;
+    --with-body) WITH_BODY=1; shift ;;
     --help|-h) usage ;;
     *) echo "Unknown flag: $1"; usage ;;
   esac
@@ -108,7 +111,11 @@ fi
 mkdir -p .tasks
 
 # Build base query args (without label)
-base_args=("--repo" "$REPO" "--state" "open" "--json" "number,title,labels,url,assignees,state,updatedAt,body" "--limit" "1000")
+json_fields="number,title,labels,url,assignees,state,updatedAt"
+if [[ "$WITH_BODY" -eq 1 ]]; then
+  json_fields="${json_fields},body"
+fi
+base_args=("--repo" "$REPO" "--state" "open" "--json" "$json_fields" "--limit" "1000")
 declare -a extra_args=()
 if [[ -n "$ASSIGNEE" ]]; then
   extra_args+=("--assignee" "$ASSIGNEE")

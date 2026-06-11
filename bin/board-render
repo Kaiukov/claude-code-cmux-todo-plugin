@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """board-render: Read .tasks/issues.json, write .tasks/board.json and TODO.md."""
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -80,6 +81,11 @@ def render(input_path: Path, board_path: Path, todo_path: Path) -> int:
             "url": url,
             "assignees": assignee_names,
             "source": "github",
+            "updatedAt": issue.get("updatedAt", ""),
+            "body_sha": hashlib.sha256(
+                (issue.get("body") or "").encode()
+            ).hexdigest() if issue.get("body") else "",
+            "body_preview": (issue.get("body") or "")[:200],
         })
 
     # Merge local tasks from .tasks/local.json
@@ -159,12 +165,13 @@ def render(input_path: Path, board_path: Path, todo_path: Path) -> int:
     with open(todo_path, "w") as f:
         f.write("\n".join(lines) + "\n")
 
-    # Persist per-issue bodies to .tasks/issues/<n>.md
+    # Persist per-issue bodies to .tasks/issues/<n>.md — ONLY for ready status
     issues_dir = board_path.parent / "issues"
-    issues_dir.mkdir(parents=True, exist_ok=True)
     issue_body_count = 0
     for task in board:
         if task["source"] != "github":
+            continue
+        if task["status"] != "ready":
             continue
         num = task["number"]
         title = task["title"]
@@ -177,6 +184,7 @@ def render(input_path: Path, board_path: Path, todo_path: Path) -> int:
                 body = iss.get("body")
                 break
         md_path = issues_dir / f"{num}.md"
+        issues_dir.mkdir(parents=True, exist_ok=True)
         with open(md_path, "w") as f:
             f.write(f"# #{num} {title}\n\n")
             f.write(f"URL: {url}\n")

@@ -103,14 +103,15 @@ by status.
 | Skill               | Description                                                |
 |---------------------|------------------------------------------------------------|
 | `/board-onboard`    | Run FIRST in a clean session — switch into orchestrator mode and load all board + cmux operating instructions. |
+| `/board-onboard-lite` | Compact orchestrator bootstrap for token-constrained sessions. Full rules at `docs/ORCHESTRATOR.md`. |
 | `/board-init`       | Initialize a repo with canonical board status labels. Run once per repo before board-pull. |
 | `/board-create-issue` | Turn a raw task description into a structured GitHub issue and create it. |
 | `/board-add-task`  | Add a local task without a GitHub issue. Local tasks live in `.tasks/local.json` and never touch GitHub. Local task status can be updated via `board-add --set <id> --status <status>`. |
-| `/board-pull`       | Fetch GitHub issues and render the local board. Supports `--strategy all-open` (default, one API call + local filter) and `--strategy labels` (per-label queries unioned). |
+| `/board-pull`       | Fetch GitHub issues and render the local board. Supports `--strategy all-open` (default, one API call + local filter) and `--strategy labels` (per-label queries unioned). Use `--with-body` to include body text. |
 | `/board-sync`       | Write ONE issue's status back to GitHub by swapping its canonical label. Idempotent, preserves non-canonical labels. |
 | `/board-release`    | Bump SemVer versions, create git tags, and publish GitHub Releases with opt-in network safety gates. |
-| `/board-plan`       | Mirror `ready` tasks into Claude's built-in task list.     |
-| `/board-run-ready`  | Dispatch ready tasks to cmux panes for parallel execution. |
+| `/board-plan`       | Mirror ready tasks into Claude's built-in task list (cap: 5). |
+| `/board-run-ready`  | Dispatch ready tasks to cmux panes for parallel execution. Generates compact `.task-spec.md` with `forbidden_reads` guard. |
 | `/board`            | Show the board flow and operating rules.                   |
 
 ## Workflow
@@ -154,14 +155,16 @@ claude plugin validate .
 |-------------------------------|-----------------------------------|
 | `.claude-plugin/plugin.json`  | Plugin manifest                   |
 | `bin/board-init`              | Bash: create/normalize canonical labels |
-| `bin/board-pull`              | Bash: fetch issues via `gh`       |
+| `bin/board-pull`              | Bash: fetch issues via `gh` (--with-body for full body) |
 | `bin/board-render`            | Python: generate board.json + TODO.md |
+| `bin/board-render-body`       | Bash: on-demand full-body retrieval for a single issue |
 | `bin/board-status`            | Bash: compact board state for the orchestrator (counts + next ready) |
 | `bin/board-next`              | Bash: return next actionable task for a given status |
 | `skills/*/SKILL.md`           | Skill definitions                 |
 | `hooks/hooks.json`            | SessionStart board summary        |
 | `docs/state-model.md`         | State mapping across representations |
 | `docs/file-roles.md`          | Roles of generated files          |
+| `docs/ORCHESTRATOR.md`        | Full orchestrator operating rules (referenced by board-onboard-lite) |
 | `tests/`                      | Self-contained render tests       |
 | `.tasks/board.json`           | Generated: local board cache      |
 | `.tasks/issues.json`          | Generated: fetched GitHub issues  |

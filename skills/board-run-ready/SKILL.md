@@ -27,25 +27,48 @@ Use compact helpers, not a full board read:
 
 ## Dispatch
 
+### Step 0: Generate `.task-spec.md`
+
+Before spawning an agent, generate a compact `.task-spec.md` inside the agent
+worktree (`<worktree>/.task-spec.md`). Never place it in `/tmp` or external
+directories. Use this format:
+
+```markdown
+# Task: #<N> <title>
+
+GitHub: <url>
+
+## Goal (one-liner)
+<single-sentence summary of what needs to be done>
+
+## Scope
+<bullet points describing affected files, implementation boundaries>
+
+## Acceptance criteria
+<verifiable conditions — e.g. tests pass, plugin validate, no new lint>
+
+## forbidden_reads
+- `.tasks/issues/*` — do NOT glob-read materialised issue bodies.
+```
+
+The `forbidden_reads` section is required. It must explicitly forbid
+glob-reading `.tasks/issues/*` to prevent accidental token leakage from
+materialised issue body files.
+
+### Steps 1–8
+
 The `cmux-agent-workflows` scripts are bundled at
 `skills/cmux-agent-workflows/scripts/`. Use them natively:
 
 1. **`skills/cmux-agent-workflows/scripts/wt-new.sh`** — worktree off `origin/main`.
-2. **`skills/cmux-agent-workflows/scripts/agent-spawn.sh`** — spawn agent (model tier via `board-config --get-model <tier>`).
-3. **`skills/cmux-agent-workflows/scripts/agent-send.sh`** — send task spec.
-4. **`skills/cmux-agent-workflows/scripts/poll-push.sh`** — poll origin (background).
-5. **`skills/cmux-agent-workflows/scripts/verify.sh`** (or `verify-ts.sh`) — hard gate.
-6. **`skills/cmux-agent-workflows/scripts/pr-finish.sh`** — merge + cleanup.
-7. **`skills/cmux-agent-workflows/scripts/agent-kill.sh`** — tear down pane.
-8. **`skills/cmux-agent-workflows/scripts/agent-notify.sh`** — agent's final step (emits CTB-DONE payload).
-
-Fallback (no `cmux` on PATH):
-
-```
-cmux new-split right
-cmux rename-tab "<label>"
-cmux send -- "<work prompt>"
-```
+2. **Write `.task-spec.md`** into the worktree (see Step 0 format above).
+3. **`skills/cmux-agent-workflows/scripts/agent-spawn.sh`** — spawn agent (model tier via `board-config --get-model <tier>`).
+4. **`skills/cmux-agent-workflows/scripts/agent-send.sh`** — send the `.task-spec.md` path (not a bare URL).
+5. **`skills/cmux-agent-workflows/scripts/poll-push.sh`** — poll origin (background).
+6. **`skills/cmux-agent-workflows/scripts/verify.sh`** (or `verify-ts.sh`) — hard gate.
+7. **`skills/cmux-agent-workflows/scripts/pr-finish.sh`** — merge + cleanup.
+8. **`skills/cmux-agent-workflows/scripts/agent-kill.sh`** — tear down pane.
+9. **`skills/cmux-agent-workflows/scripts/agent-notify.sh`** — agent's final step (emits CTB-DONE payload).
 
 - Dispatch/spec files MUST live inside the agent worktree (e.g. `<worktree>/.task-spec.md`), never `/tmp` or external dirs, to avoid 'Access external directory' permission prompts.
 

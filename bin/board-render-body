@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<EOF
+Usage: board-render-body <N> [--repo OWNER/REPO]
+
+Retrieve the full body for a single GitHub issue. Reads from
+.tasks/issues.json if the body was cached (--with-body pull),
+otherwise fetches via gh issue view. Writes .tasks/issues/<N>.md
+and prints the body to stdout.
+
+Options:
+  --repo OWNER/REPO  Repository (or set BOARD_REPO env var).
+EOF
+  exit 0
+}
+
+N=""
+REPO="${BOARD_REPO:-}"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --repo) REPO="$2"; shift 2 ;;
+    --help|-h) usage ;;
+    *)
+      if [[ "$1" =~ ^[0-9]+$ ]]; then
+        N="$1"; shift
+      else
+        echo "ERROR: unknown flag '$1'" >&2; usage
+      fi
+      ;;
+  esac
+done
+
+if [[ -z "$N" ]]; then
+  echo "ERROR: issue number required." >&2
+  exit 1
+fi
+
+ISSUES_FILE=".tasks/issues.json"
+TASKS_DIR=".tasks"
+
+# Try cached body first
+body=""
+if [[ -f "$ISSUES_FILE" ]]; then
+  body=$(jq -r --argjson n "$N" '.[] | select(.number == $n) | .body // empty' "$ISSUES_FILE" 2>/dev/null || true)
+fi
+
+# Fetch from GitHub if not cached
+if [[ -z "$body" ]]; then
+  if [[ -z "$REPO" ]]; then
+    echo "ERROR: --repo or BOARD_REPO is required to fetch from GitHub." >&2
+    exit 1
+  fi
+  if ! command -v gh &>/dev/null; then
+    echo "ERROR: gh (GitHub CLI) not found." >&2
+    exit 1
+  fi
+  body=$(gh issue view "$N" --repo "$REPO" --json body -q '.body' 2>/dev/null) || {
+    echo "ERROR: failed to fetch issue #${N} from ${REPO}" >&2
+    exit 1
+  }
+fi
+
+# Also get title/url/status for the .md file
+title=""
+url=""
+status=""
+if [[ -f ".tasks/board.json" ]]; then
+  title=$(jq -r --argjson n "$N" '.[] | select(.number == $n) | .title // "untitled"' ".tasks/board.json" 2>/dev/null || echo "untitled")
+  url=$(jq -r --argjson n "$N" '.[] | select(.number == $n) | .url // ""' ".tasks/board.json" 2>/dev/null || echo "")
+  status=$(jq -r --argjson n "$N" '.[] | select(.number == $n) | .status // "inbox"' ".tasks/board.json" 2>/dev/null || echo "inbox")
+fi
+labels_str=$(jq -r --argjson n "$N" '.[] | select(.number == $n) | .labels | join(", ")' ".tasks/board.json" 2>/dev/null || echo "")
+
+mkdir -p "${TASKS_DIR}/issues"
+md_path="${TASKS_DIR}/issues/${N}.md"
+{
+  echo "# #${N} ${title}"
+  echo ""
+  echo "URL: ${url}"
+  echo "Status: ${status}"
+  echo "Labels: ${labels_str}"
+  echo ""
+  echo "## Body"
+  echo ""
+  if [[ -n "$body" && "$body" != "null" ]]; then
+    echo "$body"
+  else
+    echo "(no body)"
+  fi
+} > "$md_path"
+
+echo "$body"
+echo "board-render-body: wrote ${md_path}" >&2

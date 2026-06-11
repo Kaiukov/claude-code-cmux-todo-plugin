@@ -12,6 +12,9 @@ entries in Claude's built-in task list for the current round.
 
 - **Only `ready` tasks are mirrored.** `inbox`, `blocked`, `needs-info`,
   `needs-review`, `in-progress`, and `done` tasks are skipped.
+- **Cap: 5 ready tasks mirrored.** The default limit is 5. If there are more
+  than 5 ready tasks, emit only the first 5, then a summary line:
+  `… and N more ready tasks (see board.json)`.
 - **The task list is ephemeral.** These entries exist only for the current
   round. They disappear when the session ends.
 - **Use the Task tools provider** to create tasks (if available:
@@ -22,11 +25,13 @@ entries in Claude's built-in task list for the current round.
 
 1. Read `.tasks/board.json`.
 2. Filter to tasks where `status == "ready"`.
-3. For each ready task, create a task entry with:
+3. Mirror up to **5** ready tasks (the cap). For each, create a task entry with:
    - `title`: `#{number} {title}` for GitHub tasks, `[{id}] {title}` for local tasks.
    - `description`: URL and labels from the board entry.
    - `status`: `pending`
-4. Do NOT create tasks for `blocked` or `needs-info` items — those must never
+4. If there are more than 5 ready tasks, emit one compact summary line:
+   `… and N more ready tasks (see board.json)`.
+5. Do NOT create tasks for `blocked` or `needs-info` items — those must never
    be started without explicit user action.
 
 ## After running

@@ -217,13 +217,13 @@ else
   exit 1
 fi
 
-echo "--- Test 15: missing body writes '(no body)' ---"
+echo "--- Test 15: missing body writes '(no body)' (ready issue) ---"
 cat > "$TMPDIR/.tasks/issues.json" <<'NOBODYEOF'
 [
   {
     "number": 99,
     "title": "no body issue",
-    "labels": [{"name": "inbox"}],
+    "labels": [{"name": "ready"}],
     "url": "https://x/99",
     "assignees": []
   }
@@ -265,6 +265,146 @@ if [[ "$local_count" == "1" && ! -f "$TMPDIR/.tasks/issues/L1.md" ]]; then
   echo "PASS"
 else
   echo "FAIL: local task handling wrong"
+  exit 1
+fi
+
+echo "--- Test 17: non-ready issue does NOT get per-issue .md file ---"
+cat > "$TMPDIR/.tasks/issues.json" <<'NONREADYEOF'
+[
+  {
+    "number": 100,
+    "title": "inbox task",
+    "labels": [{"name": "inbox"}],
+    "url": "https://x/100",
+    "assignees": [],
+    "body": "full body here"
+  },
+  {
+    "number": 101,
+    "title": "blocked task",
+    "labels": [{"name": "blocked"}],
+    "url": "https://x/101",
+    "assignees": [],
+    "body": "blocked body"
+  },
+  {
+    "number": 102,
+    "title": "ready task",
+    "labels": [{"name": "ready"}],
+    "url": "https://x/102",
+    "assignees": [],
+    "body": "ready body content"
+  }
+]
+NONREADYEOF
+rm -f "$TMPDIR/.tasks/local.json"
+rm -rf "$TMPDIR/.tasks/issues"
+run_render 2>/dev/null
+if [[ -f "$TMPDIR/.tasks/issues/100.md" ]]; then
+  echo "FAIL: .tasks/issues/100.md should NOT exist for inbox"
+  exit 1
+fi
+if [[ -f "$TMPDIR/.tasks/issues/101.md" ]]; then
+  echo "FAIL: .tasks/issues/101.md should NOT exist for blocked"
+  exit 1
+fi
+if [[ ! -f "$TMPDIR/.tasks/issues/102.md" ]]; then
+  echo "FAIL: .tasks/issues/102.md should exist for ready"
+  exit 1
+fi
+echo "PASS"
+
+echo "--- Test 18: board.json has compact fields (updatedAt, body_sha, body_preview) ---"
+# Check that all github tasks in board.json have these fields
+fields_ok=$(python3 -c "
+import json
+data = json.load(open('$TMPDIR/.tasks/board.json'))
+for t in data:
+    if t.get('source') == 'github':
+        if 'updatedAt' not in t:
+            print('FAIL: missing updatedAt for', t['number'])
+            exit(1)
+        if 'body_sha' not in t:
+            print('FAIL: missing body_sha for', t['number'])
+            exit(1)
+        if 'body_preview' not in t:
+            print('FAIL: missing body_preview for', t['number'])
+            exit(1)
+print('OK')
+")
+if [[ "$fields_ok" == "OK" ]]; then
+  echo "PASS"
+else
+  echo "FAIL: $fields_ok"
+  exit 1
+fi
+
+echo "--- Test 19: body_preview is capped at 200 chars ---"
+long_body="a"
+for i in $(seq 1 250); do long_body="${long_body}b"; done
+cat > "$TMPDIR/.tasks/issues.json" <<PREVIEWEOF
+[
+  {
+    "number": 200,
+    "title": "long body task",
+    "labels": [{"name": "ready"}],
+    "url": "https://x/200",
+    "assignees": [],
+    "body": "${long_body}"
+  }
+]
+PREVIEWEOF
+rm -f "$TMPDIR/.tasks/local.json"
+rm -rf "$TMPDIR/.tasks/issues"
+run_render 2>/dev/null
+preview_len=$(python3 -c "import json; d=json.load(open('$TMPDIR/.tasks/board.json')); print(len(d[0]['body_preview']))")
+if [[ "$preview_len" == "200" ]]; then
+  echo "PASS"
+else
+  echo "FAIL: body_preview length is $preview_len, expected 200"
+  exit 1
+fi
+
+echo "--- Test 20: body_sha is hash of body ---"
+cat > "$TMPDIR/.tasks/issues.json" <<'SHAEOF'
+[
+  {
+    "number": 300,
+    "title": "hash test",
+    "labels": [{"name": "inbox"}],
+    "url": "https://x/300",
+    "assignees": [],
+    "body": "test body"
+  }
+]
+SHAEOF
+rm -f "$TMPDIR/.tasks/local.json"
+rm -rf "$TMPDIR/.tasks/issues"
+run_render 2>/dev/null
+sha=$(python3 -c "import json, hashlib; d=json.load(open('$TMPDIR/.tasks/board.json')); print(d[0]['body_sha'])")
+expected_sha=$(python3 -c "import hashlib; print(hashlib.sha256(b'test body').hexdigest())")
+if [[ "$sha" == "$expected_sha" ]]; then
+  echo "PASS"
+else
+  echo "FAIL: body_sha=$sha, expected=$expected_sha"
+  exit 1
+fi
+
+echo "--- Test 21: board.json still has required fields (source, assignees, id, labels) ---"
+required_ok=$(python3 -c "
+import json
+data = json.load(open('$TMPDIR/.tasks/board.json'))
+for t in data:
+    for f in ('source', 'assignees', 'id', 'labels', 'number', 'title', 'status', 'url'):
+        if f not in t:
+            print('FAIL: missing field', f, 'for task', t.get('number'))
+            exit(1)
+print('OK')
+")
+if [[ "$required_ok" == "OK" ]]; then
+  echo "PASS"
+else
+  echo "FAIL: $required_ok"
   exit 1
 fi
 

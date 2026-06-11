@@ -5,6 +5,21 @@ This project adheres to semantic versioning.
 
 ## [Unreleased]
 
+### Changed
+- **Token-efficiency pass (#42):** 7 changes cutting recurring token overhead
+  across board commands and agent dispatch.
+  - `board-pull`: removed `body` from default `--json` fields; added `--with-body` flag.
+  - `board-render`: only materialises full body `.md` for `ready` status; writes
+    `body_preview` (200 chars) + `body_sha` into `board.json` for all issues.
+  - `board-render-body <N>`: new command for on-demand full-body retrieval.
+  - `board-onboard-lite`: compact orchestrator bootstrap SKILL.md; full rules
+    moved to `docs/ORCHESTRATOR.md`.
+  - `board-plan`: cap mirrored ready tasks at 5 with `… and N more` summary line.
+  - `board-run-ready`: dispatch generates compact `.task-spec.md` inside agent worktree
+    instead of bare URL.
+  - Agent guard: `.task-spec.md` includes `forbidden_reads` forbidding glob-read of
+    `.tasks/issues/*`.
+
 ### Added
 - `board-release` — stack-agnostic SemVer release helper with safety gates (#28).
 

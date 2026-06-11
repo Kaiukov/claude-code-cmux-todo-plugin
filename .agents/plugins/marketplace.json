@@ -8,7 +8,7 @@
       "name": "cmux-todo-board",
       "source": {
         "source": "local",
-        "path": "."
+        "path": "./plugins/cmux-todo-board"
       },
       "policy": {
         "installation": "AVAILABLE",

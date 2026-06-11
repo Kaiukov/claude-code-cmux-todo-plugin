@@ -103,8 +103,8 @@ by status.
 | Skill               | Description                                                |
 |---------------------|------------------------------------------------------------|
 | `/board-onboard`    | Run FIRST in a clean session — switch into orchestrator mode and load all board + cmux operating instructions. |
-| `/board-onboard-lite` | Compact orchestrator bootstrap for token-constrained sessions. Full rules at `docs/ORCHESTRATOR.md`. |
-| `/cmux-agent-workflows-lite` | Compact delegation reference for cmux agent orchestration — script catalog, delegation cycle. Full reference at `skills/cmux-agent-workflows/SKILL.md`. |
+| `/board-onboard-lite` | Compact orchestrator bootstrap for token-constrained sessions. Full rules at `plugins/cmux-todo-board/docs/ORCHESTRATOR.md`. |
+| `/cmux-agent-workflows-lite` | Compact delegation reference for cmux agent orchestration — script catalog, delegation cycle. Full reference at `plugins/cmux-todo-board/skills/cmux-agent-workflows/SKILL.md`. |
 | `/board-init`       | Initialize a repo with canonical board status labels. Run once per repo before board-pull. |
 | `/board-create-issue` | Turn a raw task description into a structured GitHub issue and create it. |
 | `/board-add-task`  | Add a local task without a GitHub issue. Local tasks live in `.tasks/local.json` and never touch GitHub. Local task status can be updated via `board-add --set <id> --status <status>`. |
@@ -131,7 +131,7 @@ command sequence.
 
 ## Limit monitor
 
-`bin/limit-monitor` parses the Claude Code status line `rate_limits.seven_day`
+`plugins/cmux-todo-board/bin/limit-monitor` parses the Claude Code status line `rate_limits.seven_day`
 field and persists state to `.tasks/limit-monitor.json`. Register it as a status
 line command in `~/.claude/settings.json` so it receives `rate_limits` on stdin:
 
@@ -139,7 +139,7 @@ line command in `~/.claude/settings.json` so it receives `rate_limits` on stdin:
 {
   "statusLine": {
     "type": "command",
-    "command": "bash bin/limit-monitor"
+    "command": "bash plugins/cmux-todo-board/bin/limit-monitor"
   }
 }
 ```
@@ -159,13 +159,13 @@ Degrades gracefully when stdin has no rate_limits data.
 
 ```bash
 # Run the board-render tests
-bash tests/test_board_render.sh
+bash plugins/cmux-todo-board/tests/test_board_render.sh
 
 # Run the union/dedup logic tests
-bash tests/test_board_pull_union.sh
+bash plugins/cmux-todo-board/tests/test_board_pull_union.sh
 
 # Run the label-swap logic tests
-bash tests/test_board_sync.sh
+bash plugins/cmux-todo-board/tests/test_board_sync.sh
 
 # Validate plugin structure (if claude CLI available)
 claude plugin validate .
@@ -181,19 +181,19 @@ claude plugin validate .
 | Path                          | Role                              |
 |-------------------------------|-----------------------------------|
 | `.claude-plugin/plugin.json`  | Plugin manifest                   |
-| `bin/board-init`              | Bash: create/normalize canonical labels |
-| `bin/board-pull`              | Bash: fetch issues via `gh` (--with-body for full body) |
-| `bin/board-render`            | Python: generate board.json + TODO.md |
-| `bin/board-render-body`       | Bash: on-demand full-body retrieval for a single issue |
-| `bin/board-status`            | Bash: compact board state for the orchestrator (counts + next ready) |
-| `bin/board-next`              | Bash: return next actionable task for a given status |
-| `bin/limit-monitor`           | Bash: weekly Claude Code limit monitor (status line command) |
-| `skills/*/SKILL.md`           | Skill definitions                 |
+| `plugins/cmux-todo-board/bin/board-init`              | Bash: create/normalize canonical labels |
+| `plugins/cmux-todo-board/bin/board-pull`              | Bash: fetch issues via `gh` (--with-body for full body) |
+| `plugins/cmux-todo-board/bin/board-render`            | Python: generate board.json + TODO.md |
+| `plugins/cmux-todo-board/bin/board-render-body`       | Bash: on-demand full-body retrieval for a single issue |
+| `plugins/cmux-todo-board/bin/board-status`            | Bash: compact board state for the orchestrator (counts + next ready) |
+| `plugins/cmux-todo-board/bin/board-next`              | Bash: return next actionable task for a given status |
+| `plugins/cmux-todo-board/bin/limit-monitor`           | Bash: weekly Claude Code limit monitor (status line command) |
+| `plugins/cmux-todo-board/skills/*/SKILL.md`           | Skill definitions                 |
 | `hooks/hooks.json`            | SessionStart board summary        |
-| `docs/state-model.md`         | State mapping across representations |
-| `docs/file-roles.md`          | Roles of generated files          |
-| `docs/ORCHESTRATOR.md`        | Full orchestrator operating rules (referenced by board-onboard-lite) |
-| `tests/`                      | Self-contained render tests       |
+| `plugins/cmux-todo-board/docs/state-model.md`         | State mapping across representations |
+| `plugins/cmux-todo-board/docs/file-roles.md`          | Roles of generated files          |
+| `plugins/cmux-todo-board/docs/ORCHESTRATOR.md`        | Full orchestrator operating rules (referenced by board-onboard-lite) |
+| `plugins/cmux-todo-board/tests/`                      | Self-contained render tests       |
 | `.tasks/board.json`           | Generated: local board cache      |
 | `.tasks/issues.json`          | Generated: fetched GitHub issues  |
 | `.tasks/issues/<n>.md`        | Per-issue body cache for workers (not committed; `.tasks/` is gitignored) |

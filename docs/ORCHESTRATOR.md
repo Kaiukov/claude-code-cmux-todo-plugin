@@ -128,7 +128,9 @@ Bundled at `skills/cmux-agent-workflows/scripts/`:
 
 1. Detect the active repo: read `BOARD_REPO`, or ask the user `owner/repo`.
 2. If `./.tasks/board.json` is **absent**, run `/board-pull` first.
-3. Read `./.tasks/board.json`; summarize counts per status.
+3. Run `bin/board-status` to get counts and next-ready tasks (compact
+   summary without reading the full board.json). Keep board.json available
+   for on-demand inspection.
 4. Run `/board-plan` to mirror `ready` items into the task list.
 5. Report: active repo, ready count, and the next action — then **await the
    user's go** before dispatching any work (`/board-run-ready`).

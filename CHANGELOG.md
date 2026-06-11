@@ -9,6 +9,9 @@ This project adheres to semantic versioning.
 - `board-status --json --ready-tasks N` — counts + next-N ready tasks in one compact call so the orchestrator/board-plan skip the full board.json read (#50).
 - cmux-agent-workflows-lite skill — compact delegation reference loaded per session instead of the full ~9.7 KB skill (#49).
 
+### Changed
+- Orchestrator no longer reads `TODO.md`; counts/next-ready come from `board-status`. `TODO.md` is still generated as a human reference (#52).
+
 ## [0.4.1] - 2026-06-11
 
 ### Added

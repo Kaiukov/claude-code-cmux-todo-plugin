@@ -39,7 +39,7 @@ Canonical status order:
 ## Delegation cycle (compact)
 
 1. `wt-new.sh` → worktree | 2. `agent-spawn.sh` → spawn agent
-3. `agent-send.sh` → dispatch `.task-spec.md` | 4. `poll-push.sh` → poll (bg)
+3. `agent-send.sh` → dispatch `.task-spec.md` | 4. Standby ([rule](docs/ORCHESTRATOR.md#standby-after-dispatch)) — wait for CTB-DONE or user nudge
 5. `verify.sh` → hard gate | 6. `pr-finish.sh` → merge | 7. `agent-kill.sh` → cleanup
 
 Scripts: `skills/cmux-agent-workflows/scripts/`.

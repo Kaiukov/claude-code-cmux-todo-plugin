@@ -115,10 +115,14 @@ agent_launch_cmd() {
 agent_ready_patterns() {
   case "$1" in
     opencode)
-      # The opencode TUI shows "Build · <model>" in the input box footer and
-      # the model banner in the header. Match on the model separator "·" so we
-      # don't false-positive on plain OpenCode splash.
-      printf '%s' 'Build · |· DeepSeek|· GPT|^OpenCode|esc dismiss'
+      # Input-ready markers that survive even when the TUI renders as
+      # multi-column boxes in very narrow split panes (#54). The model
+      # banner becomes column-interleaved garbage, but these horizontal
+      # command-bar tokens reliably survive whitespace+box-char stripping:
+      #   anything  — the empty-input placeholder in the prompt box
+      #   agents    — the agents command-bar button
+      #   commands  — the commands command-bar button
+      printf '%s' 'anything|agents|commands'
       ;;
     codex)
       # The codex TUI shows the OpenAI Codex banner + model id in the prompt
@@ -146,8 +150,17 @@ wait_agent_ready() {
   local pattern trust_seen=""
   pattern="$(agent_ready_patterns "$kind")"
   while (( waited < timeout )); do
-    local screen
+    local screen normalized
     screen="$(cmux read-screen --surface "$surface" --lines 40 2>/dev/null || true)"
+    # Normalize: opencode TUI can render as multi-column boxes in narrow
+    # panes so we delete ALL whitespace + box-drawing chars (#54).
+    # Codex TUI does not have this problem — collapse whitespace only.
+    # Box chars: ┃┏┓┗┛━╹▀│─┌┐└┘●
+    if [[ "$kind" == "opencode" ]]; then
+      normalized="$(printf '%s' "$screen" | tr -d '[:space:]┃┏┓┗┛━╹▀│─┌┐└┘●')"
+    else
+      normalized="$(printf '%s' "$screen" | tr -s ' \n' ' ')"
+    fi
     if [[ "$kind" == "codex" && -z "$trust_seen" ]] \
          && grep -qE 'Do you trust the contents of this directory' <<<"$screen"; then
       log "auto-accepting codex trust prompt in $surface"
@@ -158,7 +171,7 @@ wait_agent_ready() {
       sleep 3; waited=$((waited+4))
       continue
     fi
-    if grep -qE "$pattern" <<<"$screen"; then
+    if grep -qE "$pattern" <<<"$normalized"; then
       return 0
     fi
     sleep 3; waited=$((waited+3))

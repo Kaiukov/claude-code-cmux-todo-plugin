@@ -10,6 +10,9 @@ This project adheres to semantic versioning.
 - cmux-agent-workflows-lite skill — compact delegation reference loaded per session instead of the full ~9.7 KB skill (#49).
 - `--quiet` / `LOG_LEVEL` gate for `lib.sh log()` — background poll/spawn scripts can suppress progress chatter while still emitting their final result line (#51).
 
+### Fixed
+- Agent readiness probe is now reflow-tolerant and quiet — `agent-spawn.sh` no longer emits false 120s timeout warnings in narrow split panes, and per-poll screen output no longer leaks to the caller (#54, closes L5).
+
 ### Changed
 - `docs/ORCHESTRATOR.md` symbol-compressed ~20–30% (bullet-dense) with no loss of rules; delegation-cycle anchor preserved (#55).
 - Delegation cycle consolidated into a single canonical `docs/ORCHESTRATOR.md`; board-run-ready and cmux-agent-workflows skills link to it instead of duplicating the steps (#53).

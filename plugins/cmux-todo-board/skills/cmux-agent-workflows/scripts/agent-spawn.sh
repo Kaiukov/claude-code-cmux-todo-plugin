@@ -83,14 +83,10 @@ BAND="$(pick_band)"
 NAME="$BAND${LABEL:+ $LABEL}"
 log "auto-named agent: $NAME"
 
-BEFORE="$(cmux_surfaces)"
 log "splitting $SPLIT"
-cmux new-split "$SPLIT" >&2
-sleep 1
-AFTER="$(cmux_surfaces)"
-
-SURFACE="$(comm -13 <(echo "$BEFORE") <(echo "$AFTER") | head -1)"
-[[ -n "$SURFACE" ]] || die "could not determine new surface ref"
+SPLIT_OUT="$(cmux new-split "$SPLIT" 2>&1)"
+SURFACE="$(echo "$SPLIT_OUT" | grep -oE 'surface:[0-9]+' | head -1)"
+[[ -n "$SURFACE" ]] || die "could not determine new surface ref from output: $SPLIT_OUT"
 log "new surface: $SURFACE"
 
 cmux rename-tab --surface "$SURFACE" "$NAME" >&2 || true

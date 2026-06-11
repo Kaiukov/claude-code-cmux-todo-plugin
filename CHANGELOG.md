@@ -8,6 +8,9 @@ This project adheres to semantic versioning.
 ### Added
 - First-class OpenCode plugin entrypoint (`.opencode/`) exposing `board.status`, `board.next`, `board.sync` as native custom tools plus `shell.env` and `session.idle` hooks (#78).
 
+### Fixed
+- Agent-spawn surface race: parse the authoritative surface ref directly from `cmux new-split` output instead of before/after whole-tree diffing + `sleep 1` + `comm -13`, eliminating a race where two parallel spawns could select the same surface (#77).
+
 ## [0.5.0] - 2026-06-12
 
 ### Added

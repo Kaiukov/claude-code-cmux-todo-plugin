@@ -5,6 +5,8 @@ This project adheres to semantic versioning.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-06-11
+
 ### Added
 - Codex plugin adapter (#40).
 - `board-status --json --ready-tasks N` — counts + next-N ready tasks in one compact call so the orchestrator/board-plan skip the full board.json read (#50).

@@ -5,6 +5,16 @@ This project adheres to semantic versioning.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-11
+
+### Added
+- **Event-driven completion wait (#44):** new `poll-wait.sh` — a dual-source
+  waiter that detects agent completion via the `cmux events` stream (agent idle /
+  `CTB-DONE` notify) with `poll-push.sh` demoted to a fallback (bash-native
+  watchdog, no GNU `timeout` dependency). Graceful degradation to poll-only when
+  the cmux hooks plugin is absent.
+- `board-release` — stack-agnostic SemVer release helper with safety gates (#28).
+
 ### Changed
 - **Token-efficiency pass (#42):** 7 changes cutting recurring token overhead
   across board commands and agent dispatch.
@@ -20,8 +30,13 @@ This project adheres to semantic versioning.
   - Agent guard: `.task-spec.md` includes `forbidden_reads` forbidding glob-read of
     `.tasks/issues/*`.
 
-### Added
-- `board-release` — stack-agnostic SemVer release helper with safety gates (#28).
+### Fixed
+- `agent-notify.sh`: emit structured `cmux notify --title/--body/--surface`
+  instead of a bare positional payload (#44).
+
+### Docs
+- `docs/research/cmux-notify-feed-orchestrator.md` — design for event-driven
+  completion wait (L1 research, #45).
 
 ## [0.3.0] - 2026-06-09
 

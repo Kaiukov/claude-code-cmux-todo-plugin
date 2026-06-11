@@ -83,6 +83,10 @@ Workers end with the shared completion path:
 There is no Codex-specific finish path. The same `agent-notify.sh` and
 `poll-push.sh` logic is reused by both backends.
 
+**Orchestrator standby:** After dispatching, the orchestrator must not poll the
+agent pane or type into it — see the [canonical standby rule in
+`docs/ORCHESTRATOR.md`](ORCHESTRATOR.md#standby-after-dispatch).
+
 ## Worker Prompt Template
 
 The bounded worker final-report format lives at

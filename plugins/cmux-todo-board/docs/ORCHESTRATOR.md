@@ -52,7 +52,7 @@ For each task you execute:
 1. **Worktree** off `origin/main` (sibling dir, carries `.env`).
 2. **Spawn** agent (opencode/codex) in worktree.
 3. **Dispatch** task spec — MUST live inside agent worktree (`<worktree>/.task-spec.md`), never `/tmp`/external dirs, to avoid permission prompts. Use compact format (below).
-4. **Wait (event-driven + poll fallback).** Primary: subscribe to `cmux events` (agent.hook.Stop / lifecycle idle / CTB-DONE). Fallback: poll `git ls-remote origin <branch>` every 60 s. Run `poll-wait.sh --surface <ref> --branch <name> [--task <id>]` in background (`Bash run_in_background:true`).
+4. **Standby after dispatch.** See [standby rule](#standby-after-dispatch). Wait for completion signal or user nudge — do not actively poll the agent pane.
 5. **Verify independently** — hard gate: run tests + validation. Do not trust agent's word.
 6. **Live-check** real resources (deploy / `--remote` / migration) yourself.
 7. **Merge** (squash) + clean up worktree, branch, agent pane.
@@ -86,6 +86,15 @@ GitHub: <url>
 - `agent-kill.sh` — tear down pane
 - `agent-audit.sh` — audit panes, reclaim idle/finished surfaces (dry-run default; `--apply` to close)
 - `agent-notify.sh` — emit CTB-DONE payload
+
+## Standby after dispatch {#standby-after-dispatch}
+
+After dispatching an agent into a cmux pane, the orchestrator MUST enter standby mode:
+
+- **No active screen/status polling.** Do not call `agent-screen.sh`, `agent-send.sh` with read flags, or any pane-reading command to check progress. The orchestrator waits for a completion signal (`CTB-DONE` via `agent-notify.sh` / `cmux events` lifecycle idle) or an explicit user nudge before re-engaging.
+- **Background poll fallback is allowed.** `poll-wait.sh` / `poll-push.sh` run in the background (`run_in_background: true`) and do not count as active polling — they are event-driven waiters with a git `ls-remote` fallback, not a screen-scrape loop.
+- **One bounded light read on signal.** After a completion signal or user nudge, a single `agent-screen.sh <surface> <N>` (≤40 lines) is permitted to read the final report. Do not page through the pane or poll it.
+- **Do not type into a working agent pane.** `agent-send.sh` MUST NOT be called against an active agent surface until the agent has either completed (sent a signal) or the user explicitly instructs you to intervene.
 
 ## On invocation
 

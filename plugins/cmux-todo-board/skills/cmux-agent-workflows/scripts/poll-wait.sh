@@ -18,21 +18,11 @@
 # Compatibility: macOS bash 3.2 (no `wait -n`, no `timeout`, no `read -t`).
 # Uses a bash-native watchdog instead of GNU timeout.
 #
-# UNVERIFIED: event names and payload shapes. The grep patterns below are built
-# against shapes documented in WAIT_WITHOUT_SLEEP.md and the cmux audit log
-# (~/.cmuxterm/events.jsonl). Confirmed: agent events carry .payload.hook_event_name
-# ("Stop", "SessionStart", etc.) and .payload.phase. The field .payload.lifecycle
-# was NOT observed in the audit log (null); it may appear only in the live stream
-# for opencode agents with cmux-session.js. We match both "lifecycle.*idle" and
-# "hook_event_name.*Stop" to cover whichever fires. Notification bodies are
-# redacted in the audit log but may be present in the live stream.
-#
-# UNVERIFIED: surface_id on agent events. In the audit log, agent events have
-# surface_id:null because the source process (claude/opencode hook IPC) does not
-# report a surface. The cmux-session.js plugin may fill surface_id from the
-# enclosing pane. If it does not, surface-scoped event matching is unreliable
-# and the grep may catch any agent's Stop/idle event. This is acceptable because
-# the fallback poll-push.sh verifies the specific branch was pushed.
+# The event listener is intentionally enabled whenever `cmux` is available.
+# Codex hooks live in ~/.codex/hooks.json, while the completion signal itself
+# is the cmux notification stream. The idle lifecycle match remains a bonus for
+# agents that emit it, but CTB-DONE must still wake the orchestrator even when
+# no opencode plugin files are present.
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; source "$DIR/lib.sh"
 
@@ -51,8 +41,10 @@ done
 
 [[ -n "$SURFACE" && -n "$BRANCH" ]] || die "usage: poll-wait.sh --surface <ref> --branch <name> [--task <id>] [--event-timeout <s>] [--total-timeout <s>]"
 
-SURF_NUM="${SURFACE#surface:}"
-PLUGIN_FILE="$HOME/.config/opencode/plugins/cmux-session.js"
+EVENT_PATTERN='(lifecycle.*idle|hook_event_name.*Stop|CTB-DONE.*task=)'
+if [[ -n "$TASK" ]]; then
+  EVENT_PATTERN="(lifecycle.*idle|hook_event_name.*Stop|CTB-DONE.*task=${TASK})"
+fi
 EVENT_PID=""; WATCHDOG_PID=""; POLL_PID=""
 METHOD=""; SUCCESS=1
 TMPDIR="$(mktemp -d)"
@@ -60,14 +52,10 @@ trap 'kill $EVENT_PID $WATCHDOG_PID $POLL_PID 2>/dev/null; rm -rf "$TMPDIR"' EXI
 
 # ── graceful degradation check (design §5.6) ──
 EVENT_ENABLED=false
-if command -v cmux &>/dev/null && [[ -f "$PLUGIN_FILE" ]]; then
+if command -v cmux &>/dev/null; then
   EVENT_ENABLED=true
 else
-  if command -v cmux &>/dev/null; then
-    log "WARN: cmux hooks not installed ($PLUGIN_FILE missing) → event path disabled, using poll fallback"
-  else
-    log "WARN: cmux not available → event path disabled, using poll fallback"
-  fi
+  log "WARN: cmux not available → event path disabled, using poll fallback"
 fi
 
 # ── background event listener (design §3.2 step 1) ──
@@ -75,10 +63,8 @@ fi
 # file on grep match; the watchdog only kills the process — NO result file means
 # the listener was killed by timeout, so we fall through to the poll path.
 if $EVENT_ENABLED; then
-  # UNVERIFIED: grep pattern covers both lifecycle idle (WAIT_WITHOUT_SLEEP.md)
-  # and agent.hook.Stop (observed in audit log). CTB-DONE may appear in
-  # notification bodies in the live stream even though they are redacted in
-  # the audit log.
+  # The event stream can carry either agent lifecycle idle or the explicit
+  # CTB-DONE notification body. The latter is the Codex completion path.
   # NOTE: set +o pipefail inside the subshell prevents the upstream cmux
   # SIGPIPE (exit 141) from masking a successful grep match (exit 0).
   # Without this, set -euo pipefail at the script level would abort the
@@ -86,7 +72,7 @@ if $EVENT_ENABLED; then
   (
     set +o pipefail
     if cmux events --category agent --category notification --no-heartbeat 2>/dev/null \
-         | grep -m1 -E '(lifecycle.*idle|hook_event_name.*Stop|CTB-DONE.*task=)' \
+         | grep -m1 -E "$EVENT_PATTERN" \
          > /dev/null 2>&1; then
       echo "event" > "$TMPDIR/ev.result"
     fi

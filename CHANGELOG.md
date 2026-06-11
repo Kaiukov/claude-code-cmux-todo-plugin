@@ -13,6 +13,7 @@ This project adheres to semantic versioning.
 
 ### Fixed
 - Agent readiness probe is now reflow-tolerant and quiet — `agent-spawn.sh` no longer emits false 120s timeout warnings in narrow split panes, and per-poll screen output no longer leaks to the caller (#54, closes L5).
+- Codex completion wait now listens to the cmux notification stream even without opencode plugin files, so CTB-DONE wakes the orchestrator before the poll fallback (#71).
 
 ### Changed
 - Plugin payload relocated to `plugins/cmux-todo-board/`; Codex marketplace now installs a working plugin (#40).

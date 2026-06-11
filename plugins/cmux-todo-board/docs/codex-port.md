@@ -79,6 +79,11 @@ Workers end with the shared completion path:
   payload as the final step.
 - `skills/cmux-agent-workflows/scripts/poll-push.sh` remains the fallback if the
   notification path is missed.
+- `skills/cmux-agent-workflows/scripts/poll-wait.sh` is the bounded consumer:
+  it listens to `cmux events --category agent --category notification` and
+  wakes on either the agent idle lifecycle or the CTB-DONE notification body.
+- For Codex, the hook bridge lives in `~/.codex/hooks.json`; the completion
+  wakeup does not depend on the opencode plugin files being present.
 
 There is no Codex-specific finish path. The same `agent-notify.sh` and
 `poll-push.sh` logic is reused by both backends.

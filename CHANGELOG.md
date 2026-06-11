@@ -5,6 +5,12 @@ This project adheres to semantic versioning.
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-06-11
+
+### Added
+- **#34:** `bin/limit-monitor` — weekly Claude Code limit monitor (parses status-line `rate_limits.seven_day`, persists `.tasks/limit-monitor.json`, WARN/CRIT thresholds with once-per-week dedup, `cmux notify` on CRIT, graceful degrade).
+- **L4:** `skills/cmux-agent-workflows/scripts/agent-audit.sh` — audit open cmux panes, reclaim idle/finished agent surfaces (dry-run default, `--apply`, safety guards).
+
 ### Changed
 - Agents now maintain CHANGELOG.md via the task spec; orchestrator no longer hand-edits it (L2).
 

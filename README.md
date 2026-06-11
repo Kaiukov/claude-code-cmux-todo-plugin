@@ -128,6 +128,32 @@ and `TODO.md` is a read-only render. The board is bidirectional — `board-sync`
 writes status back to GitHub labels. See [Quick start](#quick-start) for the
 command sequence.
 
+## Limit monitor
+
+`bin/limit-monitor` parses the Claude Code status line `rate_limits.seven_day`
+field and persists state to `.tasks/limit-monitor.json`. Register it as a status
+line command in `~/.claude/settings.json` so it receives `rate_limits` on stdin:
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "bash bin/limit-monitor"
+  }
+}
+```
+
+**Environment variables:**
+
+| Variable           | Default      | Description                                  |
+|--------------------|--------------|----------------------------------------------|
+| `LIMIT_WARN_AT`    | `80`         | Percentage threshold for WARN notification   |
+| `LIMIT_CRIT_AT`    | `95`         | Percentage threshold for CRIT notification   |
+| `LIMIT_DATA_FILE`  | `.tasks/limit-monitor.json` | State persistence path       |
+
+On CRIT threshold breach it calls `cmux notify` (once per week max dedup).
+Degrades gracefully when stdin has no rate_limits data.
+
 ## Verification
 
 ```bash
@@ -160,6 +186,7 @@ claude plugin validate .
 | `bin/board-render-body`       | Bash: on-demand full-body retrieval for a single issue |
 | `bin/board-status`            | Bash: compact board state for the orchestrator (counts + next ready) |
 | `bin/board-next`              | Bash: return next actionable task for a given status |
+| `bin/limit-monitor`           | Bash: weekly Claude Code limit monitor (status line command) |
 | `skills/*/SKILL.md`           | Skill definitions                 |
 | `hooks/hooks.json`            | SessionStart board summary        |
 | `docs/state-model.md`         | State mapping across representations |

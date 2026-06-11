@@ -77,25 +77,7 @@ directly.
 
 ## Standard delegation cycle
 
-```bash
-S=scripts                                   # from this skill dir
-WT=$($S/wt-new.sh feat/foo ../wt-feat-foo)   # 1. isolated worktree
-SURF=$($S/agent-spawn.sh right "$WT" opencode-go/deepseek-v4-pro TASK)   # opencode; tab auto-named e.g. "Radiohead TASK"
-# — OR for codex, explicit or auto-detected by model name:
-SURF=$($S/agent-spawn.sh right "$WT" gpt-5.4 TASK -c model_reasoning_effort=high --agent codex)
-# (auto-detect: gpt-5.4 / gpt-5.4-mini / o3 / o4-mini / etc. all dispatch to codex; provider/model form goes to opencode)
-$S/agent-send.sh "$SURF" < dispatch-prompt.txt   # 2. dispatch the task
-# 3. wait for completion in background (Bash run_in_background:true):
-#    PRIMARY: event-driven via cmux events (agent.hook.Stop / lifecycle idle / CTB-DONE)
-#    FALLBACK: poll-push.sh (git ls-remote polling)
-$S/poll-wait.sh --surface "$SURF" --branch feat/foo --total-timeout 600
-# … notified on completion …
-$S/verify.sh "$WT"                             # 4. independent gate
-# 5. live check / live deploy yourself if relevant (orchestrator-only)
-$S/pr-finish.sh 42 "$WT"                       # 6. merge + cleanup
-$S/agent-kill.sh "$SURF" --agent opencode --close   # 7. stop agent, close split
-# for codex: $S/agent-kill.sh "$SURF" --agent codex --close
-```
+See the [canonical delegation cycle in `docs/ORCHESTRATOR.md`](../../docs/ORCHESTRATOR.md#cmux-delegation-cycle) for the full worktree→spawn→dispatch→poll→verify→merge→cleanup flow. The per-script reference above documents each script's interface in detail. The bash example has been removed to avoid drift — refer to the canonical doc instead.
 
 ## Conventions (encoded in the scripts)
 

@@ -62,20 +62,7 @@ materialised issue body files.
 
 ### Steps 1–8
 
-The `cmux-agent-workflows` scripts are bundled at
-`skills/cmux-agent-workflows/scripts/`. Use them natively:
-
-1. **`skills/cmux-agent-workflows/scripts/wt-new.sh`** — worktree off `origin/main`.
-2. **Write `.task-spec.md`** into the worktree (see Step 0 format above).
-3. **`skills/cmux-agent-workflows/scripts/agent-spawn.sh`** — spawn agent (model tier via `board-config --get-model <tier>`).
-4. **`skills/cmux-agent-workflows/scripts/agent-send.sh`** — send the `.task-spec.md` path (not a bare URL).
-5. **`skills/cmux-agent-workflows/scripts/poll-push.sh`** — poll origin (background).
-6. **`skills/cmux-agent-workflows/scripts/verify.sh`** (or `verify-ts.sh`) — hard gate.
-7. **`skills/cmux-agent-workflows/scripts/pr-finish.sh`** — merge + cleanup.
-8. **`skills/cmux-agent-workflows/scripts/agent-kill.sh`** — tear down pane.
-9. **`skills/cmux-agent-workflows/scripts/agent-notify.sh`** — agent's final step (emits CTB-DONE payload).
-
-- Dispatch/spec files MUST live inside the agent worktree (e.g. `<worktree>/.task-spec.md`), never `/tmp` or external dirs, to avoid 'Access external directory' permission prompts.
+See the [canonical delegation cycle in `docs/ORCHESTRATOR.md`](../docs/ORCHESTRATOR.md#cmux-delegation-cycle). The scripts at `skills/cmux-agent-workflows/scripts/` map one-to-one to the steps there. Only the procedural loop is shared — all board-run-ready–specific constraints (below) still apply.
 
 ## Verification (hard gate)
 

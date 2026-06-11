@@ -64,7 +64,7 @@ Never start `blocked` or `needs-info` tasks without explicit user action.
 `board-pull` is one-directional (GitHub → local). Sync-back of status to GitHub
 via `board-sync --issue N --status STATUS --repo owner/repo`.
 
-## cmux delegation cycle
+## cmux delegation cycle {#delegation-cycle}
 
 For each task you actually execute, run the orchestrator loop:
 

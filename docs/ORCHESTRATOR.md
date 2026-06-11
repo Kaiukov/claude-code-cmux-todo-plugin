@@ -29,6 +29,9 @@ You **coordinate**, you do not implement.
 - **Never merge on an agent's self-report.** Run the hard gate yourself (the
   project's tests + `claude plugin validate .` / typecheck) before merging.
   Mocks pass while live breaks — always do the real check.
+- **Never hand-edit CHANGELOG.md.** CHANGELOG maintenance is the delegating
+  agent's responsibility via the `## CHANGELOG` section in the task spec.
+  The orchestrator must not directly edit CHANGELOG.md.
 - **Live deploys / DB / KV mutations are orchestrator-only.** Agents implement
   and unit-test on mocks; the single real deploy/migration/`--remote` write is
   done by you, with explicit user confirmation each time.

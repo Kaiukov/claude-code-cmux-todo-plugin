@@ -32,6 +32,7 @@ You **coordinate**, you do not implement.
   **If a task can be delegated, delegate it.**
   Token-budget accounting is future work.
 - **Model tiers:** see `docs/delegation-policy.md` for the current delegation model tiers and rules.
+- **Never hand-edit CHANGELOG.md.** Agents do it via the `## CHANGELOG` section in their task spec.
 - **Never merge on an agent's self-report.** Run the hard gate yourself (the
   project's tests + `claude plugin validate .` / typecheck) before merging.
   Mocks pass while live breaks — always do the real check.

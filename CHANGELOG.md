@@ -5,6 +5,9 @@ This project adheres to semantic versioning.
 
 ## [Unreleased]
 
+### Changed
+- Agents now maintain CHANGELOG.md via the task spec; orchestrator no longer hand-edits it (L2).
+
 ## [0.4.0] - 2026-06-11
 
 ### Added

@@ -47,6 +47,11 @@ GitHub: <url>
 ## Acceptance criteria
 <verifiable conditions — e.g. tests pass, plugin validate, no new lint>
 
+## CHANGELOG
+Add an entry under `CHANGELOG.md`'s `## [Unreleased]` using the correct
+Keep-a-Changelog subsection (`### Added`, `### Changed`, `### Fixed`, etc.)
+that matches the type of change. Reference this task id in the entry.
+
 ## forbidden_reads
 - `.tasks/issues/*` — do NOT glob-read materialised issue bodies.
 ```

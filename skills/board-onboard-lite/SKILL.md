@@ -11,6 +11,7 @@ For the full first-time onboard, use `board-onboard` instead.
 ## Your role: ORCHESTRATOR
 
 Coordinate, do not implement. Delegate coding to cmux agents.
+Never hand-edit CHANGELOG.md (agents do it via their task spec).
 Only exception: the user explicitly asks you to write code.
 
 Key docs: `docs/ORCHESTRATOR.md` (full rules), `docs/delegation-policy.md` (model tiers).

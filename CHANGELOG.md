@@ -6,6 +6,7 @@ This project adheres to semantic versioning.
 ## [Unreleased]
 
 ### Added
+- docs: Pi CLI usage guide + cmux terminal agent-spawn recipe (docs/pi-cli-usage.md)
 - Install-location-independent `bin/` resolution in `.opencode/plugins/cmux-board.mjs`: priority-ordered lookup via `CMUX_BOARD_HOME` env var → walk-up search for `bin/board-status` → relative fallback (#81).
 - `.opencode/agent/orchestrator.md` `mode: primary` agent encoding the orchestrator role, board workflow, delegation cycle, and standby rule (#81).
 - Skills discoverability via `skills.paths` in `.opencode/opencode.json`, pointing at the existing `skills/` directory (#81).

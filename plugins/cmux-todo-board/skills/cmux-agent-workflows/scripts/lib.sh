@@ -90,9 +90,23 @@ agent_kind_detect() {
 
 # Build the launch command for a given agent kind. Echoes a single string that
 # the caller pipes to `cmux send --surface <s> "..."` followed by a newline.
-# Extra args (already shell-quoted) are appended.
+# After kind/wt/model, two optional positional params are consumed as thinking
+# and tools (only for the pi agent kind) when the next arg is a valid thinking
+# level (low|medium|high). Remaining args are appended verbatim.
 agent_launch_cmd() {
   local kind="$1" wt="$2" model="$3"; shift 3
+  local thinking="" tools=""
+  # Consume thinking if next arg is a valid thinking level (heuristic for
+  # backward compat: only profile-pathed calls pass low/medium/high here).
+  if [[ $# -gt 0 ]]; then
+    case "$1" in
+      low|medium|high) thinking="$1"; shift ;;
+    esac
+  fi
+  # Consume tools if thinking was set (profile path).
+  if [[ -n "$thinking" && $# -gt 0 ]]; then
+    tools="$1"; shift
+  fi
   case "$kind" in
     opencode)
       printf "cd '%s' && opencode --model %s" "$wt" "$model"
@@ -110,6 +124,8 @@ agent_launch_cmd() {
         die "pi requires a provider/model form, e.g. opencode-go/deepseek-v4-pro"
       fi
       printf "cd '%s' && pi --provider %s --model %s" "$wt" "$provider" "$pi_model"
+      [[ -n "$thinking" ]] && printf ' --thinking %s' "$thinking"
+      [[ -n "$tools" ]] && printf ' --tools %s' "$tools"
       ;;
   esac
   if (( $# > 0 )); then printf ' %s' "$@"; fi

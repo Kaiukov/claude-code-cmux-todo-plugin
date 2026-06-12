@@ -6,6 +6,10 @@ This project adheres to semantic versioning.
 ## [Unreleased]
 
 ### Added
+- Pi role profiles (backend/frontend/frontend-top/review/docs): `board-config
+  --get-profile <name>` resolves a profile to `{provider, model, thinking, tools}`
+  and `agent-spawn.sh --profile <name>` launches a Pi worker from it. Profiles are
+  configuration over the Pi runtime; tier/`--model`/`--agent` paths unchanged (#102).
 - `pi` agent-kind: canonical Pi worker launch path (`agent-spawn.sh --agent pi`),
   with provider/model split, trust pre-seed, and ready/kill patterns. OpenCode and
   Codex paths kept as fallback (#90).

@@ -1,0 +1,239 @@
+#!/usr/bin/env bash
+# Tests for Pi role profiles (#102).
+# Verifies board-config --get-profile resolution, deep-merge overrides,
+# agent_launch_cmd thinking/tools threading, and regressions.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+BOARD_CONFIG="$REPO_ROOT/bin/board-config"
+LIB_FILE="$REPO_ROOT/skills/cmux-agent-workflows/scripts/lib.sh"
+
+if [[ ! -f "$BOARD_CONFIG" ]]; then
+  echo "FAIL: board-config not found at $BOARD_CONFIG"
+  exit 1
+fi
+if [[ ! -f "$LIB_FILE" ]]; then
+  echo "FAIL: lib.sh not found at $LIB_FILE"
+  exit 1
+fi
+
+source "$LIB_FILE"
+
+failures=0
+
+# ── helpers ──
+new_testdir() {
+  TESTDIR="$(mktemp -d)"
+  pushd "$TESTDIR" >/dev/null
+  mkdir -p .tasks
+}
+
+cleanup_testdir() {
+  popd >/dev/null || true
+  rm -rf "$TESTDIR"
+}
+
+# ══════════════════════════════════════════════════════════════════════
+# Test 1: board-config --get-profile backend --json
+# ══════════════════════════════════════════════════════════════════════
+echo "=== Test 1: --get-profile backend --json ==="
+new_testdir
+json="$("$BOARD_CONFIG" --get-profile backend --json 2>&1)"
+provider="$(echo "$json" | jq -r '.provider')"
+thinking="$(echo "$json" | jq -r '.thinking')"
+tools="$(echo "$json" | jq -r '.tools')"
+model="$(echo "$json" | jq -r '.model')"
+if [[ "$provider" == "opencode-go" && "$thinking" == "high" && "$tools" == "read,bash,edit,write,grep,find,ls" && -n "$model" ]]; then
+  echo "PASS  (provider=$provider thinking=$thinking tools=$tools model=$model)"
+else
+  echo "FAIL: provider=$provider thinking=$thinking tools=$tools model=$model"
+  failures=$((failures + 1))
+fi
+cleanup_testdir
+
+# ══════════════════════════════════════════════════════════════════════
+# Test 2: each of the 5 profiles resolves with correct provider+thinking+tools
+# ══════════════════════════════════════════════════════════════════════
+echo "=== Test 2: all 5 profiles resolve correctly ==="
+new_testdir
+all_ok=true
+check_profile() {
+  local profile="$1" exp_provider="$2" exp_thinking="$3" exp_tools="$4"
+  local json provider thinking tools
+  json="$("$BOARD_CONFIG" --get-profile "$profile" --json 2>&1)"
+  provider="$(echo "$json" | jq -r '.provider')"
+  thinking="$(echo "$json" | jq -r '.thinking')"
+  tools="$(echo "$json" | jq -r '.tools')"
+  if [[ "$provider" == "$exp_provider" && "$thinking" == "$exp_thinking" && "$tools" == "$exp_tools" ]]; then
+    echo "  $profile: PASS"
+    return 0
+  else
+    echo "  $profile: FAIL — got provider=$provider thinking=$thinking tools=$tools"
+    return 1
+  fi
+}
+check_profile backend opencode-go high "read,bash,edit,write,grep,find,ls" || all_ok=false
+check_profile frontend anthropic medium "read,bash,edit,write,grep,find,ls" || all_ok=false
+check_profile frontend-top anthropic medium "read,bash,edit,write,grep,find,ls" || all_ok=false
+check_profile review openai-codex high "read,bash,grep,find,ls" || all_ok=false
+check_profile docs opencode-go low "read,bash,edit,write,grep,find,ls" || all_ok=false
+if $all_ok; then
+  echo "PASS"
+else
+  failures=$((failures + 1))
+fi
+cleanup_testdir
+
+# ══════════════════════════════════════════════════════════════════════
+# Test 3: unknown profile exits non-zero
+# ══════════════════════════════════════════════════════════════════════
+echo "=== Test 3: unknown profile exits non-zero ==="
+new_testdir
+if "$BOARD_CONFIG" --get-profile nope --json 2>/dev/null; then
+  echo "FAIL: unknown profile should fail"
+  failures=$((failures + 1))
+else
+  echo "PASS"
+fi
+cleanup_testdir
+
+# ══════════════════════════════════════════════════════════════════════
+# Test 4: .tasks/config.json profiles override → deep-merge proof
+# ══════════════════════════════════════════════════════════════════════
+echo "=== Test 4: override one field (thinking), others keep default ==="
+new_testdir
+# Set up a config that overrides only thinking for backend
+echo '{"profiles":{"backend":{"thinking":"low"}}}' > .tasks/config.json
+json="$("$BOARD_CONFIG" --get-profile backend --json 2>&1)"
+provider="$(echo "$json" | jq -r '.provider')"
+thinking="$(echo "$json" | jq -r '.thinking')"
+tools="$(echo "$json" | jq -r '.tools')"
+# Provider should still be the default opencode-go, thinking overridden to low
+if [[ "$provider" == "opencode-go" && "$thinking" == "low" && "$tools" == "read,bash,edit,write,grep,find,ls" ]]; then
+  echo "PASS  (provider=$provider thinking=$thinking tools=$tools)"
+else
+  echo "FAIL: provider=$provider thinking=$thinking tools=$tools"
+  failures=$((failures + 1))
+fi
+cleanup_testdir
+
+# ══════════════════════════════════════════════════════════════════════
+# Test 5: agent_launch_cmd pi with thinking + tools
+# ══════════════════════════════════════════════════════════════════════
+echo "=== Test 5: agent_launch_cmd pi with thinking + tools ==="
+cmd="$(agent_launch_cmd pi "/tmp/wt" "opencode-go/deepseek-v4-pro" high read,bash)"
+expected="cd '/tmp/wt' && pi --provider opencode-go --model deepseek-v4-pro --thinking high --tools read,bash"
+if [[ "$cmd" == "$expected" ]]; then
+  echo "PASS"
+else
+  echo "FAIL: expected '$expected', got '$cmd'"
+  failures=$((failures + 1))
+fi
+
+# ══════════════════════════════════════════════════════════════════════
+# Test 6: agent_launch_cmd pi without thinking/tools (regression from #90)
+# ══════════════════════════════════════════════════════════════════════
+echo "=== Test 6: agent_launch_cmd pi without thinking/tools ==="
+cmd="$(agent_launch_cmd pi "/tmp/wt" "opencode-go/deepseek-v4-pro")"
+expected="#90 output"
+expected_full="cd '/tmp/wt' && pi --provider opencode-go --model deepseek-v4-pro"
+if [[ "$cmd" == "$expected_full" ]]; then
+  echo "PASS"
+else
+  echo "FAIL: expected '$expected_full', got '$cmd'"
+  failures=$((failures + 1))
+fi
+
+# ══════════════════════════════════════════════════════════════════════
+# Test 7: opencode launch_cmd unchanged (regression)
+# ══════════════════════════════════════════════════════════════════════
+echo "=== Test 7: opencode launch_cmd unchanged ==="
+oc_cmd="$(agent_launch_cmd opencode "/tmp/wt" "deepseek/deepseek-v4-pro")"
+expected_oc="cd '/tmp/wt' && opencode --model deepseek/deepseek-v4-pro"
+if [[ "$oc_cmd" == "$expected_oc" ]]; then
+  echo "PASS"
+else
+  echo "FAIL: got '$oc_cmd'"
+  failures=$((failures + 1))
+fi
+
+# ══════════════════════════════════════════════════════════════════════
+# Test 8: codex launch_cmd unchanged (regression)
+# ══════════════════════════════════════════════════════════════════════
+echo "=== Test 8: codex launch_cmd unchanged ==="
+cx_cmd="$(agent_launch_cmd codex "/tmp/wt" "gpt-5-codex")"
+expected_cx="codex --cd '/tmp/wt' -m gpt-5-codex -a never -s danger-full-access"
+if [[ "$cx_cmd" == "$expected_cx" ]]; then
+  echo "PASS"
+else
+  echo "FAIL: got '$cx_cmd'"
+  failures=$((failures + 1))
+fi
+
+# ══════════════════════════════════════════════════════════════════════
+# Test 9: board-config --get-profile with individual selectors
+# ══════════════════════════════════════════════════════════════════════
+echo "=== Test 9: --get-profile selectors ==="
+new_testdir
+provider="$("$BOARD_CONFIG" --get-profile backend --provider 2>&1)"
+if [[ "$provider" == "opencode-go" ]]; then
+  echo "  --provider: PASS"
+else
+  echo "  --provider: FAIL (got $provider)"
+  failures=$((failures + 1))
+fi
+
+model="$("$BOARD_CONFIG" --get-profile backend --model 2>&1)"
+if [[ "$model" == "deepseek-v4-pro" ]]; then
+  echo "  --model: PASS"
+else
+  echo "  --model: FAIL (got $model)"
+  failures=$((failures + 1))
+fi
+
+thinking="$("$BOARD_CONFIG" --get-profile backend --thinking 2>&1)"
+if [[ "$thinking" == "high" ]]; then
+  echo "  --thinking: PASS"
+else
+  echo "  --thinking: FAIL (got $thinking)"
+  failures=$((failures + 1))
+fi
+
+tools="$("$BOARD_CONFIG" --get-profile backend --tools 2>&1)"
+if [[ "$tools" == "read,bash,edit,write,grep,find,ls" ]]; then
+  echo "  --tools: PASS"
+else
+  echo "  --tools: FAIL (got $tools)"
+  failures=$((failures + 1))
+fi
+
+# Default (no selector) prints model
+default="$("$BOARD_CONFIG" --get-profile backend 2>&1)"
+if [[ "$default" == "deepseek-v4-pro" ]]; then
+  echo "  default (model): PASS"
+else
+  echo "  default (model): FAIL (got $default)"
+  failures=$((failures + 1))
+fi
+cleanup_testdir
+
+# ══════════════════════════════════════════════════════════════════════
+# Test 10: pi launch with extra args after thinking/tools
+# ══════════════════════════════════════════════════════════════════════
+echo "=== Test 10: pi launch with thinking + tools + extra args ==="
+cmd="$(agent_launch_cmd pi "/tmp/wt" "p/m" high read,bash extra1 extra2)"
+if [[ "$cmd" == *"--thinking high --tools read,bash extra1 extra2"* ]]; then
+  echo "PASS"
+else
+  echo "FAIL: got '$cmd'"
+  failures=$((failures + 1))
+fi
+
+echo ""
+if [[ $failures -eq 0 ]]; then
+  echo "All pi profiles tests passed."
+else
+  echo "$failures test(s) failed."
+  exit 1
+fi

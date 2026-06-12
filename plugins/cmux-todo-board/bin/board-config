@@ -4,6 +4,8 @@ set -euo pipefail
 DEFAULT_LANG="EN"
 DEFAULT_MODELS_JSON='{"flash":"opencode/deepseek-v4-flash-free","pro":"opencode-go/deepseek-v4-pro","review":"gpt-5.4","simple":"gpt-5.4-mini","top":"gpt-5.5"}'
 VALID_TIERS=(flash pro review simple top)
+DEFAULT_PROFILES_JSON='{"backend":{"provider":"opencode-go","model":"deepseek-v4-pro","thinking":"high","tools":"read,bash,edit,write,grep,find,ls"},"frontend":{"provider":"anthropic","model":"claude-sonnet-4-6","thinking":"medium","tools":"read,bash,edit,write,grep,find,ls"},"frontend-top":{"provider":"anthropic","model":"claude-opus-4-8","thinking":"medium","tools":"read,bash,edit,write,grep,find,ls"},"review":{"provider":"openai-codex","model":"gpt-5.4","thinking":"high","tools":"read,bash,grep,find,ls"},"docs":{"provider":"opencode-go","model":"deepseek-v4-flash","thinking":"low","tools":"read,bash,edit,write,grep,find,ls"}}'
+VALID_PROFILES=(backend frontend frontend-top review docs)
 CONFIG_FILE=".tasks/config.json"
 
 usage() {
@@ -11,6 +13,7 @@ usage() {
 Usage: board-config --get
        board-config --set-language <code>
        board-config --get-model <tier> [--provider] [--effort] [--json]
+       board-config --get-profile <name> [--provider] [--model] [--thinking] [--tools] [--json]
        board-config --help|-h
 
 Manage board runtime configuration stored in ${CONFIG_FILE}.
@@ -28,6 +31,15 @@ Commands:
     --provider          Also print the provider (opencode|codex).
     --effort            Also print the reasoning effort (low|medium|high) if set.
     --json              Print full resolution as JSON: {model, provider, effort}.
+  --get-profile <name>  Resolve a Pi role profile (backend|frontend|frontend-top|
+                        review|docs). Reads overrides from .profiles.<name> in
+                        ${CONFIG_FILE}, falls back to built-in defaults.
+    --provider          Print the provider field only.
+    --model             Print the model field only (default if no selector).
+    --thinking          Print the thinking field only.
+    --tools             Print the tools field only.
+    --json              Print full resolution as JSON:
+                        {provider, model, thinking, tools}.
   --help, -h            Show this help message.
 EOF
   exit 0
@@ -140,6 +152,61 @@ resolve_model() {
   echo "$result" | jq -r '.model'
 }
 
+# --- Profile resolver (mirrors resolve_model_full) ---
+
+# resolve_profile_full <name> <config_json> — resolve profile to {provider, model, thinking, tools}.
+# Precedence: .profiles.<name> in config overrides built-in default (deep-merge per field).
+# Unknown profile → non-zero exit + stderr message listing valid names.
+resolve_profile_full() {
+  local name="$1"
+  local config_json="$2"
+
+  local found="" p
+  for p in "${VALID_PROFILES[@]}"; do
+    [[ "$name" == "$p" ]] && found=1 && break
+  done
+  if [[ -z "$found" ]]; then
+    echo "board-config: unknown profile '${name}'. Valid: ${VALID_PROFILES[*]}" >&2
+    return 1
+  fi
+
+  # Start with the built-in default
+  local provider model thinking tools
+  provider="$(echo "$DEFAULT_PROFILES_JSON" | jq -r --arg n "$name" '.[$n].provider')"
+  model="$(echo "$DEFAULT_PROFILES_JSON" | jq -r --arg n "$name" '.[$n].model')"
+  thinking="$(echo "$DEFAULT_PROFILES_JSON" | jq -r --arg n "$name" '.[$n].thinking')"
+  tools="$(echo "$DEFAULT_PROFILES_JSON" | jq -r --arg n "$name" '.[$n].tools')"
+
+  # Override from config if present (deep-merge per field)
+  if [[ -n "$config_json" ]]; then
+    local override
+    override="$(echo "$config_json" | jq -r --arg n "$name" '.profiles[$n] // empty' 2>/dev/null)"
+    if [[ -n "$override" ]]; then
+      local ov_provider ov_model ov_thinking ov_tools
+      ov_provider="$(echo "$override" | jq -r '.provider // empty')"
+      ov_model="$(echo "$override" | jq -r '.model // empty')"
+      ov_thinking="$(echo "$override" | jq -r '.thinking // empty')"
+      ov_tools="$(echo "$override" | jq -r '.tools // empty')"
+      [[ -n "$ov_provider" ]] && provider="$ov_provider"
+      [[ -n "$ov_model" ]] && model="$ov_model"
+      [[ -n "$ov_thinking" ]] && thinking="$ov_thinking"
+      [[ -n "$ov_tools" ]] && tools="$ov_tools"
+    fi
+  fi
+
+  jq -n --arg provider "$provider" --arg model "$model" --arg thinking "$thinking" --arg tools "$tools" \
+    '{provider: $provider, model: $model, thinking: $thinking, tools: $tools}'
+}
+
+# resolve_profile <name> <json> — print model id for profile. Backward-compatible wrapper.
+resolve_profile() {
+  local result
+  if ! result="$(resolve_profile_full "$1" "$2")"; then
+    return 1
+  fi
+  echo "$result" | jq -r '.model'
+}
+
 # --- Main ---
 
 if [[ $# -gt 0 && ( "$1" == "--help" || "$1" == "-h" ) ]]; then
@@ -209,6 +276,53 @@ if [[ $# -ge 2 && "$1" == "--get-model" ]]; then
     echo "$result" | jq -r '.provider'
   elif [[ -n "$show_effort" ]]; then
     echo "$result" | jq -r '.reasoning_effort // empty'
+  else
+    echo "$result" | jq -r '.model'
+  fi
+  exit 0
+fi
+
+if [[ $# -ge 2 && "$1" == "--get-profile" ]]; then
+  name="$2"
+  shift 2
+
+  if [[ -f "$CONFIG_FILE" ]]; then
+    json="$(cat "$CONFIG_FILE")"
+  else
+    json=""
+  fi
+
+  show_provider=""
+  show_model=""
+  show_thinking=""
+  show_tools=""
+  show_json=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --provider) show_provider=1 ;;
+      --model)    show_model=1 ;;
+      --thinking) show_thinking=1 ;;
+      --tools)    show_tools=1 ;;
+      --json)     show_json=1 ;;
+      *) echo "board-config: unknown flag '$1' for --get-profile" >&2; exit 1 ;;
+    esac
+    shift
+  done
+
+  if ! result="$(resolve_profile_full "$name" "$json")"; then
+    exit 1
+  fi
+
+  if [[ -n "$show_json" ]]; then
+    echo "$result" | jq '.'
+  elif [[ -n "$show_provider" ]]; then
+    echo "$result" | jq -r '.provider'
+  elif [[ -n "$show_model" ]]; then
+    echo "$result" | jq -r '.model'
+  elif [[ -n "$show_thinking" ]]; then
+    echo "$result" | jq -r '.thinking'
+  elif [[ -n "$show_tools" ]]; then
+    echo "$result" | jq -r '.tools'
   else
     echo "$result" | jq -r '.model'
   fi

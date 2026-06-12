@@ -2,10 +2,11 @@
 # Split the current pane, boot an agent (opencode or codex) in a worktree, wait
 # until ready, and label the tab. Echoes the NEW surface ref on success.
 #
-# Usage: agent-spawn.sh <dir> <worktree> <model> [label] [extra agent args...] [--agent opencode|codex]
+# Usage: agent-spawn.sh <dir> <worktree> <model> [label] [extra agent args...] [--agent opencode|codex|pi] [--profile <name>]
 #   agent-spawn.sh right /Users/x/Code/mpc-108 deepseek/deepseek-v4-pro 108
 #   agent-spawn.sh right /Users/x/Code/mpc-108 gpt-5-codex 108 --agent codex
 #   agent-spawn.sh right /Users/x/Code/mpc-108 gpt-5.4 266 -c model_reasoning_effort=high --agent codex
+#   agent-spawn.sh right /Users/x/Code/mpc-108 --profile backend 108
 #
 # The tab name is auto-assigned: a RANDOM rock band not already in use is picked
 # from the pool (so names never repeat across live agents — no manual naming).
@@ -22,25 +23,50 @@
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; source "$DIR/lib.sh"
 
-# --- arg parse: extract --agent (anywhere in argv) then positionals --------
+# --- arg parse: extract --agent + --profile (anywhere in argv) then positionals --------
 AGENT_KIND=""
+PROFILE=""
 ARGS=()
 while (( $# > 0 )); do
   case "$1" in
     --agent) AGENT_KIND="$2"; shift 2 ;;
     --agent=*) AGENT_KIND="${1#--agent=}"; shift ;;
+    --profile) PROFILE="$2"; shift 2 ;;
+    --profile=*) PROFILE="${1#--profile=}"; shift ;;
     --quiet) LOG_LEVEL=quiet; shift ;;
     -h|--help)
-      sed -n '2,16p' "$0"; exit 0 ;;
+      sed -n '2,17p' "$0"; exit 0 ;;
     *) ARGS+=("$1"); shift ;;
   esac
 done
 
-(( ${#ARGS[@]} >= 3 )) || die "usage: agent-spawn.sh <dir> <worktree> <model> [label] [extra agent args...] [--agent opencode|codex]"
-SPLIT="${ARGS[0]}"; WT="${ARGS[1]}"; MODEL="${ARGS[2]}"; LABEL="${ARGS[3]:-}"
-# Any positionals after [label] are forwarded verbatim to the agent launch
-# command (e.g. `-c model_reasoning_effort=high` for codex).
-EXTRA=("${ARGS[@]:4}")
+if [[ -n "$PROFILE" ]]; then
+  # --profile implies --agent pi
+  [[ -z "$AGENT_KIND" ]] && AGENT_KIND="pi"
+  # --profile and explicit --model are mutually exclusive (model comes from profile)
+  # MODEL will be set from profile resolution below; detect if user passed a model positionally
+  (( ${#ARGS[@]} >= 2 )) || die "usage: agent-spawn.sh <dir> <worktree> --profile <name> [label] [extra agent args...]"
+  SPLIT="${ARGS[0]}"; WT="${ARGS[1]}"
+  # If a 3rd positional arg is present, it's a label (model is from profile, not positional)
+  LABEL="${ARGS[2]:-}"
+  EXTRA=("${ARGS[@]:3}")
+  # Resolve profile via board-config
+  REPO_ROOT="$(cd "$DIR/../../.." && pwd)"
+  if ! PROFILE_JSON="$(REPO_ROOT="$REPO_ROOT" "$REPO_ROOT/bin/board-config" --get-profile "$PROFILE" --json 2>&1)"; then
+    die "board-config --get-profile $PROFILE failed: $PROFILE_JSON"
+  fi
+  log "resolved profile $PROFILE → $PROFILE_JSON"
+  MODEL="$(echo "$PROFILE_JSON" | jq -r '.provider')/$(echo "$PROFILE_JSON" | jq -r '.model')"
+  PROFILE_THINKING="$(echo "$PROFILE_JSON" | jq -r '.thinking')"
+  PROFILE_TOOLS="$(echo "$PROFILE_JSON" | jq -r '.tools')"
+  log "profile model: $MODEL  thinking: $PROFILE_THINKING  tools: $PROFILE_TOOLS"
+else
+  (( ${#ARGS[@]} >= 3 )) || die "usage: agent-spawn.sh <dir> <worktree> <model> [label] [extra agent args...] [--agent opencode|codex|pi] [--profile <name>]"
+  SPLIT="${ARGS[0]}"; WT="${ARGS[1]}"; MODEL="${ARGS[2]}"; LABEL="${ARGS[3]:-}"
+  # Any positionals after [label] are forwarded verbatim to the agent launch
+  # command (e.g. `-c model_reasoning_effort=high` for codex).
+  EXTRA=("${ARGS[@]:4}")
+fi
 [[ -d "$WT" ]] || die "worktree not found: $WT"
 
 # Resolve tier names (flash|pro|review|simple|top) via board-config.
@@ -135,7 +161,11 @@ log "booting $AGENT_KIND in $WT"
 # Send the launch command, then submit it with a discrete Enter key. `cmux send`
 # only TYPES the text into the shell — without this send-key the command sits at
 # the prompt unexecuted and you'd have to press ENTER by hand every spawn.
-cmux send --surface "$SURFACE" -- "$(agent_launch_cmd "$AGENT_KIND" "$WT" "$MODEL" ${EXTRA[@]+"${EXTRA[@]}"})" >&2
+if [[ -n "$PROFILE" ]]; then
+  cmux send --surface "$SURFACE" -- "$(agent_launch_cmd "$AGENT_KIND" "$WT" "$MODEL" "$PROFILE_THINKING" "$PROFILE_TOOLS" ${EXTRA[@]+"${EXTRA[@]}"})" >&2
+else
+  cmux send --surface "$SURFACE" -- "$(agent_launch_cmd "$AGENT_KIND" "$WT" "$MODEL" ${EXTRA[@]+"${EXTRA[@]}"})" >&2
+fi
 sleep 1
 cmux send-key --surface "$SURFACE" "Enter" >&2
 

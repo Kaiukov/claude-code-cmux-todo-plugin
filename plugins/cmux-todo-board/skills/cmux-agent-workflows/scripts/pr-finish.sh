@@ -23,6 +23,13 @@ if [[ -n "$WT" && -d "$WT" ]]; then
   git worktree prune
 fi
 
+printf 'Merge PR #%s? (y/N) ' "$PR"
+read -r RESPONSE || RESPONSE=""
+case "$(printf '%s' "$RESPONSE" | tr '[:upper:]' '[:lower:]')" in
+  y|yes) ;;
+  *) die "merge aborted by user" ;;
+esac
+
 log "squash-merging PR #$PR"
 gh pr merge "$PR" --squash --delete-branch
 

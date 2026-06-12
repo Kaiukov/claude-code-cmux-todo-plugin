@@ -29,9 +29,9 @@ Use compact helpers, not a full board read:
 
 ### Step 0: Generate `.task-spec.md`
 
-Before spawning an agent, generate a compact `.task-spec.md` inside the agent
+Before spawning an agent, generate a maximally detailed `.task-spec.md` inside the agent
 worktree (`<worktree>/.task-spec.md`). Never place it in `/tmp` or external
-directories. Use this format:
+directories. Fill every placeholder (`<...>`) with task-specific values:
 
 ```markdown
 # Task: #<N> <title>
@@ -42,10 +42,29 @@ GitHub: <url>
 <single-sentence summary of what needs to be done>
 
 ## Scope
-<bullet points describing affected files, implementation boundaries>
+- **PRIMARY:** <file-spec> — <what to change/add>
+- **SECONDARY:** <file-spec> — <what to change/add>
+- **DO NOT TOUCH:** <off-limits-files-or-dirs>
+
+## Files
+Exact repo-relative paths to create or modify:
+- `<path/to/file1>` — <create|modify>
+- `<path/to/file2>` — <create|modify>
+
+## Verification
+Run before declaring done:
+- `bash plugins/cmux-todo-board/tests/test_*.sh` — must pass: <N>/<N>
+- `<additional-check-command>`
+
+## Commit instructions
+- Branch: `<branch-name>`
+- Commit message: `<type>: <description> (<task-id>)`
+- Push: `git push origin <branch>`
 
 ## Acceptance criteria
-<verifiable conditions — e.g. tests pass, plugin validate, no new lint>
+- [ ] <verifiable condition>
+- [ ] All tests pass
+- [ ] Node/typecheck pass (where applicable)
 
 ## CHANGELOG
 Add an entry under `CHANGELOG.md`'s `## [Unreleased]` using the correct
@@ -54,15 +73,19 @@ that matches the type of change. Reference this task id in the entry.
 
 ## forbidden_reads
 - `.tasks/issues/*` — do NOT glob-read materialised issue bodies.
+- `<additional restricted path, if any>`
 ```
 
-The `forbidden_reads` section is required. It must explicitly forbid
-glob-reading `.tasks/issues/*` to prevent accidental token leakage from
-materialised issue body files.
+All five sections (`Scope` with boundaries, `Files`, `Verification`, `Commit instructions`,
+`forbidden_reads`) are required. The orchestrator fills each with concrete values per task.
 
 ### Steps 1–8
 
 See the [canonical delegation cycle in `docs/ORCHESTRATOR.md`](../../docs/ORCHESTRATOR.md#cmux-delegation-cycle). The scripts at `skills/cmux-agent-workflows/scripts/` map one-to-one to the steps there. Only the procedural loop is shared — all board-run-ready–specific constraints (below) still apply.
+
+## Merge gate (user confirmation)
+
+After verification passes, `pr-finish.sh` prompts `Merge PR #N? (y/N)` and only proceeds on explicit `y`/`yes`. The non-interactive default is safe — piping `n` or empty input aborts without merging. The orchestrator must never bypass or automate this prompt.
 
 ## Verification (hard gate)
 

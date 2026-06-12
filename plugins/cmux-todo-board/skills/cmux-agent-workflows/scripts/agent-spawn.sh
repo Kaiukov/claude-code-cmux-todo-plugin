@@ -161,7 +161,7 @@ fi
 # Load the damage-control extension for Pi workers so every bash invocation
 # is checked against .pi/damage-control-rules.yaml (deny/ask safety net).
 if [[ "$AGENT_KIND" == "pi" ]]; then
-  EXTRA+=("--extension" "$DIR/../../../../.pi/extensions/damage-control.ts")
+  EXTRA+=("--extension" "$DIR/../../../../../.pi/extensions/damage-control.ts")
   log "damage-control: appended --extension for pi worker"
 fi
 # --- end #91 ---

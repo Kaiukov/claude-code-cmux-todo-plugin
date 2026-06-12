@@ -195,6 +195,15 @@ else
   else
     fail "damage-control.ts reference is NOT pi-guarded"
   fi
+
+  # Verify the extension file exists at the repo root (same path resolution
+  # as agent-spawn.sh: 5x .. up from its script directory to repo root).
+  ext_path="$GIT_ROOT/.pi/extensions/damage-control.ts"
+  if [[ -f "$ext_path" ]]; then
+    pass "damage-control.ts found at repo root: $ext_path"
+  else
+    fail "damage-control.ts NOT FOUND at: $ext_path"
+  fi
 fi
 
 # ══════════════════════════════════════════════════════════════════════

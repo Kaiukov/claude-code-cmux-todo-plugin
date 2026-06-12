@@ -1,6 +1,6 @@
 ---
 name: board-onboard-lite
-description: Lightweight orchestrator bootstrap — emits a compact summary (role, key commands, doc links) instead of the full inlined rules. Use when token budget is tight. For first-time onboard, use board-onboard.
+description: Default orchestrator bootstrap — loads a compact role summary, key commands, and delegation cycle for routine sessions. For advanced scenarios (backend internals, hook installation, codex trust, live-deploy traps, detailed troubleshooting), use board-onboard.
 ---
 
 # board-onboard-lite

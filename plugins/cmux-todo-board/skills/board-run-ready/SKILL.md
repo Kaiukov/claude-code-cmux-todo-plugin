@@ -27,6 +27,9 @@ Use compact helpers, not a full board read:
 
 ## Dispatch
 
+For the routine delegation workflow (worktree → spawn → dispatch → wait), see
+`cmux-agent-workflows-lite`. The sections below cover the run-ready–specific dispatch flow.
+
 ### Step 0: Generate `.task-spec.md`
 
 Before spawning an agent, generate a maximally detailed `.task-spec.md` inside the agent

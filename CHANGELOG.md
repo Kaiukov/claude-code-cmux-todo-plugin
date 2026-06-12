@@ -7,12 +7,14 @@ This project adheres to semantic versioning.
 
 ### Added
 - docs: orchestrator token-efficiency diagnostics + benchmark + secret-safe rules (#107).
+- docs: canonical orchestrator token-efficiency policy (budgets, routing, handoff, bounded specs) (#106).
 - docs: Pi CLI usage guide + cmux terminal agent-spawn recipe (docs/pi-cli-usage.md)
 - `pr-finish.sh` now requires explicit user confirmation before merge/close (L5).
 - cmux notify/feed cheat sheet (docs/cmux-cheat-sheet.md) (#82)
 - Install-location-independent `bin/` resolution in `.opencode/plugins/cmux-board.mjs`: priority-ordered lookup via `CMUX_BOARD_HOME` env var → walk-up search for `bin/board-status` → relative fallback (#81).
 
 ### Changed
+- Orchestration skills: lite path is now the default; full skill is on-demand (#105).
 - chore: repo hygiene pass (shell-script audit, trailing newlines, exec bits)
 - `.opencode/agent/orchestrator.md` `mode: primary` agent encoding the orchestrator role, board workflow, delegation cycle, and standby rule (#81).
 - Skills discoverability via `skills.paths` in `.opencode/opencode.json`, pointing at the existing `skills/` directory (#81).
@@ -25,6 +27,7 @@ This project adheres to semantic versioning.
 - `test_board_model.sh` — 58 tests covering validation, operations, resolution, persistence, and backward compatibility (#72).
 
 ### Fixed
+- SessionStart hook: path-independent board-status resolution, bounded output (#104).
 - OpenCode board tools renamed from dotted (`board.status`/`board.next`/`board.sync`) to underscore (`board_status`/`board_next`/`board_sync`) so providers that enforce the `^[a-zA-Z0-9_-]+$` tool-name pattern (e.g. DeepSeek) accept them instead of erroring on every call (#81).
 - Agent-spawn surface race: parse the authoritative surface ref directly from `cmux new-split` output instead of before/after whole-tree diffing + `sleep 1` + `comm -13`, eliminating a race where two parallel spawns could select the same surface (#77).
 

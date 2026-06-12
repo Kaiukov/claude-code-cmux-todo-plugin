@@ -1,6 +1,6 @@
 ---
 name: cmux-agent-workflows-lite
-description: Compact delegation reference for cmux agent orchestration — delegation cycle summary, script catalog, pointer to the full skill. Use when token budget is tight.
+description: Default delegation reference — compact delegation cycle, script table, and model tiers for routine sessions. For advanced topics (backends, hooks install, codex gotchas, live-deploy traps), use cmux-agent-workflows.
 ---
 
 # cmux-agent-workflows-lite

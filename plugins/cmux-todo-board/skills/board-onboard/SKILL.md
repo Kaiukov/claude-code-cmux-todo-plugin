@@ -1,6 +1,6 @@
 ---
 name: board-onboard
-description: Run FIRST in a fresh/clean session — switch into orchestrator mode and load the full board + cmux operating instructions (role, workflow, state model, delegation cycle, rules) in one shot.
+description: Advanced orchestrator bootstrap — on-demand / advanced only. Loads full role rules, workflow, and operating instructions. Needed for backend internals, hook installation, codex trust behavior, live-deploy traps, detailed troubleshooting, and script implementation details. For routine sessions, use board-onboard-lite.
 ---
 
 # board-onboard
@@ -68,37 +68,27 @@ Never start `blocked` or `needs-info` tasks without explicit user action.
 `board-pull` is one-directional (GitHub → local). Sync-back of status to GitHub
 is future work.
 
-## 4. cmux delegation cycle
+## 4. Delegation cycle
 
-For each task you actually execute, run the orchestrator loop:
+The canonical cycle is **worktree → spawn → dispatch → wait → verify → merge → cleanup**.
+See `board-onboard-lite` for the compact reference or `cmux-agent-workflows-lite` for the
+script-based workflow. Full script documentation lives in `cmux-agent-workflows` (on-demand).
 
-1. **Worktree** off `origin/main` (sibling dir, carries `.env`).
-2. **Spawn** an agent (opencode or codex) in that worktree.
-3. **Dispatch** the task spec — MUST live inside the agent worktree (e.g.
-   `<worktree>/.task-spec.md`), never `/tmp` or external dirs, to avoid
-   'Access external directory' permission prompts.
-4. **Poll** origin until the branch is pushed (run the poll in the background).
-5. **Verify independently** — the hard gate: run the project's tests +
-   validation yourself. Do not trust the agent's word.
-6. **Live-check** anything real (deploy / `--remote` / migration) yourself.
-7. **Merge** (squash) + clean up the worktree, branch, and agent pane.
+> **On-demand detail — task spec placement:** The `.task-spec.md` MUST live inside the agent
+> worktree (`<worktree>/.task-spec.md`), never `/tmp` or external dirs, to avoid
+> 'Access external directory' permission prompts. Model tiers are resolved via
+> `board-config --get-model <tier>`.
 
-The **`cmux-agent-workflows`** scripts are bundled at
-`skills/cmux-agent-workflows/scripts/`. Use them natively instead of
-hand-typing the steps: `wt-new.sh`, `agent-spawn.sh`,
-`agent-send.sh`, `agent-screen.sh`, `poll-push.sh`, `verify-ts.sh` (or
-`verify.sh`), `pr-finish.sh`, `agent-kill.sh`. Model tiers are resolved via
-`board-config --get-model <tier>` (see `.tasks/config.json` for overrides).
+## 5. On invocation
 
-## 5. On invocation — do this now
+Follow the standard invocation flow in `board-onboard-lite`. The routine steps are:
 
-1. Detect the active repo: read `BOARD_REPO`, or ask the user `owner/repo`.
-2. If `./.tasks/board.json` is **absent**, run `/board-pull` first.
-3. Run `board-status --json --ready-tasks 5` to get counts and ready tasks
-   (compact JSON call instead of reading the full `board.json`). Keep full
-   `board.json` available for on-demand inspection.
-4. Run `/board-plan` to mirror `ready` items into the task list.
-5. Report: active repo, ready count, and the next action — then **await the
-   user's go** before dispatching any work (`/board-run-ready`).
+1. Detect the active repo (read `BOARD_REPO` or ask the user `owner/repo`).
+2. If `./.tasks/board.json` is absent, run `board-pull`.
+3. Run `board-status --json --ready-tasks 5`.
+4. Run `board-plan` to mirror ready items.
+5. Report and **await the user's go** before dispatching.
 
-Do not dispatch agents or touch GitHub/live resources until the user confirms.
+> **On-demand detail — inspection:** Keep the full `board.json` available for manual inspection
+> when debugging task states or label assignments. The compact `board-status` call covers
+> routine needs.

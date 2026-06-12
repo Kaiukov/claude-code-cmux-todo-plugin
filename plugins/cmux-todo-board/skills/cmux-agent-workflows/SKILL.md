@@ -1,6 +1,6 @@
 ---
 name: cmux-agent-workflows
-description: Orchestrator helpers for delegating coding to cmux agents (opencode DeepSeek + OpenAI Codex). Use when spawning, steering, verifying, or cleaning up cmux agents and their git worktrees — the scripts collapse the repetitive cmux + git + gh shell dances into single commands to save tokens.
+description: Advanced cmux agent orchestration helpers — on-demand / advanced only. Covers agent backends, hook installation, codex gotchas, live-deploy traps, and detailed script implementation. For routine delegation, use cmux-agent-workflows-lite.
 ---
 
 # cmux agent workflows

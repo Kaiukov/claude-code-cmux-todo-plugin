@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -f .tasks/board.json ]; then bin/board-status; else echo 'board-status: no board.json — run board-pull to populate'; fi"
+            "command": "hook_board_status() {\n  local bin=\n  if [ -n \"${CLAUDE_PLUGIN_ROOT:-}\" ] && [ -x \"$CLAUDE_PLUGIN_ROOT/bin/board-status\" ]; then\n    bin=\"$CLAUDE_PLUGIN_ROOT/bin/board-status\"\n  else\n    local dir=\"$PWD\"\n    for _ in 1 2 3 4 5 6 7 8 9 10; do\n      local candidate=\"$dir/plugins/cmux-todo-board/bin/board-status\"\n      if [ -x \"$candidate\" ]; then\n        bin=\"$candidate\"\n        break\n      fi\n      local parent\n      parent=\"$(dirname \"$dir\")\"\n      [ \"$parent\" = \"$dir\" ] && break\n      dir=\"$parent\"\n    done\n  fi\n  [ -n \"$bin\" ] || exit 0\n  [ -f \".tasks/board.json\" ] || exit 0\n  \"$bin\" 2>/dev/null | head -1\n}\nhook_board_status"
           }
         ]
       }

@@ -157,6 +157,15 @@ if [[ "$AGENT_KIND" == "pi" ]]; then
   log "pre-seeded pi trust for $WT"
 fi
 
+# --- #91 damage-control safety gate ---
+# Load the damage-control extension for Pi workers so every bash invocation
+# is checked against .pi/damage-control-rules.yaml (deny/ask safety net).
+if [[ "$AGENT_KIND" == "pi" ]]; then
+  EXTRA+=("--extension" "$DIR/../../../../.pi/extensions/damage-control.ts")
+  log "damage-control: appended --extension for pi worker"
+fi
+# --- end #91 ---
+
 log "booting $AGENT_KIND in $WT"
 # Send the launch command, then submit it with a discrete Enter key. `cmux send`
 # only TYPES the text into the shell — without this send-key the command sits at

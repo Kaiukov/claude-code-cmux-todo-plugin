@@ -22,6 +22,7 @@ This project adheres to semantic versioning.
 - Agent-spawn surface race: parse the authoritative surface ref directly from `cmux new-split` output instead of before/after whole-tree diffing + `sleep 1` + `comm -13`, eliminating a race where two parallel spawns could select the same surface (#77).
 
 ### Changed
+- Expanded `.task-spec.md` template with exact paths, verification commands, commit instructions, and scope boundaries (L10).
 - `board-config --get-model` now resolves through the `model-registry` in `.tasks/config.json` when a tier is assigned to a registry entry, falling back to bare model IDs and built-in defaults (#72).
 - `agent-spawn.sh` tier-resolution path now consumes registry provider and reasoning effort from `board-config --get-model <tier> --provider|--effort`, so configured backends and Codex effort affect actual dispatch (#72).
 

@@ -66,9 +66,18 @@ GitHub: <url>
 ## Goal (one-liner)
 <summary>
 ## Scope
-<bullet points>
+- PRIMARY: <file-spec> — <change>
+- SECONDARY (if any): <file-spec>
+- DO NOT TOUCH: <off-limits boundary>
+## Files
+- `<path>` — <create|modify>
+## Verification
+- `bash plugins/cmux-todo-board/tests/test_*.sh` — <N>/<N>
+- <additional check>
+## Commit instructions
+- Branch: <name> | Commit: <type>: <desc> (<task-id>) | Push to origin
 ## Acceptance criteria
-<verifiable conditions>
+- [ ] <condition>
 ## forbidden_reads
 - `.tasks/issues/*`
 ```

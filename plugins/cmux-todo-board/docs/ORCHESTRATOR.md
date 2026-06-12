@@ -21,6 +21,13 @@ Default working language: EN. Board generates issues/docs in EN unless overridde
 - **Live deploys / DB / KV mutations = orchestrator-only.** Agents unit-test on mocks; real deploy/migration/`--remote` write done by you with explicit user confirmation each time.
 - **One `in_progress` only.** Keep ≤1 `in_progress` in built-in task list. Real parallelism tracked by cmux pane state.
 
+## Token efficiency
+
+Refer to `docs/orchestrator-token-efficiency.md` for canonical rules on:
+behavioral guardrails (A), model/effort routing (B), tool-output budgets (C),
+handoff template (G), bounded task-spec template (H), and compact worker
+completion reports (I).
+
 ## State model (sources of truth)
 
 - **GitHub Issue labels** = source of truth for STATUS.

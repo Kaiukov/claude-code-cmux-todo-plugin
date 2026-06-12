@@ -5,6 +5,8 @@ This project adheres to semantic versioning.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-06-12
+
 ### Added
 - docs: orchestrator token-efficiency diagnostics + benchmark + secret-safe rules (#107).
 - docs: canonical orchestrator token-efficiency policy (budgets, routing, handoff, bounded specs) (#106).

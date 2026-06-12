@@ -83,6 +83,10 @@ All five sections (`Scope` with boundaries, `Files`, `Verification`, `Commit ins
 
 See the [canonical delegation cycle in `docs/ORCHESTRATOR.md`](../../docs/ORCHESTRATOR.md#cmux-delegation-cycle). The scripts at `skills/cmux-agent-workflows/scripts/` map one-to-one to the steps there. Only the procedural loop is shared — all board-run-ready–specific constraints (below) still apply.
 
+## Merge gate (user confirmation)
+
+After verification passes, `pr-finish.sh` prompts `Merge PR #N? (y/N)` and only proceeds on explicit `y`/`yes`. The non-interactive default is safe — piping `n` or empty input aborts without merging. The orchestrator must never bypass or automate this prompt.
+
 ## Verification (hard gate)
 
 Never trust an agent's self-report. Run the project's tests **and**

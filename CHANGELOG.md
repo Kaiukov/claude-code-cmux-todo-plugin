@@ -6,6 +6,7 @@ This project adheres to semantic versioning.
 ## [Unreleased]
 
 ### Added
+- `pr-finish.sh` now requires explicit user confirmation before merge/close (L5).
 - cmux notify/feed cheat sheet (docs/cmux-cheat-sheet.md) (#82)
 - Install-location-independent `bin/` resolution in `.opencode/plugins/cmux-board.mjs`: priority-ordered lookup via `CMUX_BOARD_HOME` env var → walk-up search for `bin/board-status` → relative fallback (#81).
 - `.opencode/agent/orchestrator.md` `mode: primary` agent encoding the orchestrator role, board workflow, delegation cycle, and standby rule (#81).

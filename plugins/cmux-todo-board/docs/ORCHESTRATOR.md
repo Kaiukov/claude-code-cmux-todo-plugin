@@ -55,7 +55,7 @@ For each task you execute:
 4. **Standby after dispatch.** See [standby rule](#standby-after-dispatch). Wait for completion signal or user nudge — do not actively poll the agent pane.
 5. **Verify independently** — hard gate: run tests + validation. Do not trust agent's word.
 6. **Live-check** real resources (deploy / `--remote` / migration) yourself.
-7. **Merge** (squash) + clean up worktree, branch, agent pane.
+7. **Merge** (squash) + clean up worktree, branch, agent pane. `pr-finish.sh` prompts `Merge PR #N? (y/N)` and only proceeds on explicit `y`/`yes`; the non-interactive default is safe (no merge). The orchestrator must not bypass or automate this prompt — the user must type the confirmation.
 8. **Audit panes** — run `agent-audit.sh` (dry-run first, then `--apply`) to reclaim idle/finished surfaces. After `pr-finish.sh` and at round end.
 
 ### Task spec format (`.task-spec.md`)

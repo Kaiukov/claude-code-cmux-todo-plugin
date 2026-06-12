@@ -13,6 +13,10 @@ This project adheres to semantic versioning.
 - `pi` agent-kind: canonical Pi worker launch path (`agent-spawn.sh --agent pi`),
   with provider/model split, trust pre-seed, and ready/kill patterns. OpenCode and
   Codex paths kept as fallback (#90).
+- Reusable maximally-detailed `.task-spec.md` template
+  (`skills/cmux-agent-workflows/templates/task-spec.template.md`) with scope,
+  exact file bounds, acceptance, verification, commit/push, contention-guard
+  convention, and forbidden paths, plus a guide in docs/task-spec-template.md (L10).
 
 ### Fixed
 - Completion-wait now filters the cmux event stream by worker cwd (no cross-wake

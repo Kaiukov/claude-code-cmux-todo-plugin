@@ -144,3 +144,93 @@ wait_agent_ready() {
 agent_kill_pattern() {
   printf '%s' 'pi --provider|pi --model'
 }
+
+# ─── Balanced grid layout (#97) ──────────────────────────────────────────
+# Inspect the current cmux pane tree and pick a target surface + split
+# direction so new worker panes are distributed evenly across a balanced
+# grid. The orchestrator pane ($CMUX_SURFACE_ID / caller) is never chosen
+# as a target, so it is never subdivided.
+#
+# Output: "<target-surface-ref> <direction>" on success (direction ∈
+# right|down), or nothing on failure → caller falls back to legacy
+# `cmux new-split <dir>`.
+#
+# Selection rule (simple + deterministic):
+#   - Worker panes = terminal panes in the current workspace whose selected
+#     surface ref is NOT the orchestrator (caller) surface.
+#   - If 0 worker panes exist: pick the first non-orchestrator leaf (any
+#     type, lowest surface number). If none exists (e.g. only the
+#     orchestrator pane in the workspace), return empty.
+#   - If ≥1 worker panes: pick the worker pane with the lowest surface
+#     number (shallowest tie-break, since the cmux JSON is flat).
+#   - Direction: alternate for balance — if the count of existing worker
+#     panes is even → right, if odd → down. This yields: 1→down, 2→right,
+#     3→down, 4→right (approx 2×2 for four workers).
+grid_pick_split() {
+  local tree_json orch_surface ws_ref
+  tree_json="$(cmux tree --all --json 2>/dev/null)" || return 1
+
+  # The orchestrator surface is the caller (who invoked this script/cmux tree).
+  orch_surface="$(echo "$tree_json" | jq -r '.caller.surface_ref // empty')"
+  [[ -z "$orch_surface" ]] && return 1
+
+  # Determine workspace: try $CMUX_WORKSPACE_ID first, else caller's.
+  if [[ -n "${CMUX_WORKSPACE_ID:-}" ]]; then
+    ws_ref="$(echo "$tree_json" | jq -r --arg ws "$CMUX_WORKSPACE_ID" \
+      '.windows[].workspaces[] | select(.ref == $ws) | .ref' | head -1)"
+  fi
+  [[ -z "${ws_ref:-}" ]] && ws_ref="$(echo "$tree_json" | jq -r '.caller.workspace_ref // empty')"
+  [[ -z "$ws_ref" ]] && return 1
+
+  # Worker surfaces: terminal, selected surfaces in this workspace, excluding orchestrator.
+  # Sorted by surface number (lowest first) for deterministic tie-break.
+  local worker_refs
+  worker_refs="$(echo "$tree_json" | jq -r --arg ws "$ws_ref" --arg orch "$orch_surface" '
+    [ .windows[].workspaces[] | select(.ref == $ws) |
+      .panes[] |
+      . as $pane |
+      .surfaces[] | select(.ref == $pane.selected_surface_ref) |
+      select(.type == "terminal" and .ref != $orch) |
+      .ref
+    ] | sort | .[]
+  ')"
+
+  # Non-orchestrator leaves (any type) for the 0-worker fallback.
+  local non_orch_refs
+  non_orch_refs="$(echo "$tree_json" | jq -r --arg ws "$ws_ref" --arg orch "$orch_surface" '
+    [ .windows[].workspaces[] | select(.ref == $ws) |
+      .panes[] |
+      . as $pane |
+      .surfaces[] | select(.ref == $pane.selected_surface_ref) |
+      select(.ref != $orch) |
+      .ref
+    ] | sort | .[]
+  ')"
+
+  # Count existing worker panes.
+  local worker_count=0
+  if [[ -n "$worker_refs" ]]; then
+    worker_count="$(echo "$worker_refs" | grep -c '^surface:' || echo 0)"
+  fi
+
+  local target="" dir=""
+
+  if [[ "$worker_count" -eq 0 ]]; then
+    # 0 workers: pick the first non-orchestrator leaf (any type).
+    target="$(echo "$non_orch_refs" | head -1)"
+    [[ -z "$target" ]] && return 1  # only orchestrator exists → legacy fallback
+    dir="right"
+  else
+    # ≥1 workers: pick the shallowest (lowest surface number, already sorted).
+    target="$(echo "$worker_refs" | head -1)"
+    # Alternate direction: even → right, odd → down  (2×2 for 4 workers).
+    if (( worker_count % 2 == 0 )); then
+      dir="right"
+    else
+      dir="down"
+    fi
+  fi
+
+  [[ -z "$target" || -z "$dir" ]] && return 1
+  echo "$target $dir"
+}

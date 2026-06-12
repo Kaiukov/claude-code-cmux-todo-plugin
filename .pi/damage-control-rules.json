@@ -1,0 +1,154 @@
+{
+  "bashToolPatterns": [
+    {
+      "pattern": "\\brm\\s+(?=.*-[^-]*[rR])(?=.*-[^-]*[fF]).*",
+      "reason": "rm -rf (recursive force delete) — destructive, cannot undo"
+    },
+    {
+      "pattern": "\\bsudo\\s+rm\\b",
+      "reason": "sudo rm — privileged delete"
+    },
+    {
+      "pattern": "\\bchmod\\s+(-[^\\s]*\\s+)*777\\b",
+      "reason": "chmod 777 — world-writable permissions"
+    },
+    {
+      "pattern": "\\bchmod\\s+-[Rr].*777",
+      "reason": "chmod -R 777 — recursive world-writable permissions"
+    },
+    {
+      "pattern": "\\bchown\\s+-[Rr].*\\broot\\b",
+      "reason": "chown -R root — recursive ownership change to root"
+    },
+    {
+      "pattern": "\\bgit\\s+reset\\s+--hard\\b",
+      "reason": "git reset --hard — destroys uncommitted work (use --soft or stash)"
+    },
+    {
+      "pattern": "\\bgit\\s+clean\\s+.*-[fd]",
+      "reason": "git clean -fd — force-deletes untracked files and directories"
+    },
+    {
+      "pattern": "\\bgit\\s+push\\s+.*--force(?!-with-lease)",
+      "reason": "git push --force — overwrites remote history (use --force-with-lease)"
+    },
+    {
+      "pattern": "\\bgit\\s+push\\s+.*-f\\b(?!.*--force-with-lease)",
+      "reason": "git push -f — force-push shorthand (use --force-with-lease)"
+    },
+    {
+      "pattern": "\\bgit\\s+stash\\s+clear\\b",
+      "reason": "git stash clear — deletes ALL stashes permanently"
+    },
+    {
+      "pattern": "\\bgit\\s+filter-branch\\b",
+      "reason": "git filter-branch — rewrites entire history, dangerous"
+    },
+    {
+      "pattern": "\\bgit\\s+push\\s+\\S+\\s+--delete\\b",
+      "reason": "git push --delete — deletes remote branch"
+    },
+    {
+      "pattern": "\\bgit\\s+push\\s+\\S+\\s+:\\S+",
+      "reason": "git push origin :branch — deletes remote branch (old syntax)"
+    },
+    {
+      "pattern": ">\\s*/dev/sd[a-z]",
+      "reason": "redirect to /dev/sd* — writes to raw block device"
+    },
+    {
+      "pattern": "\\bmkfs\\.",
+      "reason": "mkfs — filesystem creation, destroys existing data"
+    },
+    {
+      "pattern": "\\bdd\\s+.*of=/dev/",
+      "reason": "dd of=/dev/ — writes directly to device"
+    },
+    {
+      "pattern": ":\\(\\)\\s*\\{",
+      "reason": "fork bomb — shell function that spawns unlimited processes"
+    },
+    {
+      "pattern": "\\bperl\\s+-e\\s+.*fork",
+      "reason": "potential perl fork bomb"
+    },
+    {
+      "pattern": "\\bpython.*\\bos\\.fork",
+      "reason": "potential python fork bomb"
+    },
+    {
+      "pattern": "\\bgit\\s+reset\\b(?!\\s+(--soft|--hard|--merge|--keep|HEAD))",
+      "reason": "git reset (bare) — may discard staged changes; verify intent",
+      "ask": true
+    },
+    {
+      "pattern": "\\bgit\\s+checkout\\s+--\\s*\\.",
+      "reason": "git checkout -- . — discards ALL uncommitted changes in working tree",
+      "ask": true
+    },
+    {
+      "pattern": "\\bnpm\\s+publish\\b",
+      "reason": "npm publish — publishes package to registry; confirm intent",
+      "ask": true
+    },
+    {
+      "pattern": "\\brm\\s+(?=.*-[^-]*[rR])(?!.*-[^-]*[fF]).*",
+      "reason": "rm -r without -f — confirm recursive delete intent",
+      "ask": true
+    }
+  ],
+  "zeroAccessPaths": [
+    ".env",
+    ".env.local",
+    ".env.production",
+    ".env.staging",
+    "~/.ssh/",
+    "~/.gnupg/",
+    "~/.aws/",
+    "~/.config/gcloud/",
+    "*-credentials.json",
+    "*serviceAccount*.json",
+    "*.pem",
+    "*.key",
+    "*.p12",
+    "*.pfx",
+    "~/.netrc",
+    "~/.npmrc",
+    "~/.git-credentials",
+    ".git-credentials"
+  ],
+  "readOnlyPaths": [
+    "/etc/",
+    "/usr/",
+    "/bin/",
+    "/sbin/",
+    "/boot/",
+    "package-lock.json",
+    "yarn.lock",
+    "pnpm-lock.yaml",
+    "Gemfile.lock",
+    "Cargo.lock",
+    "go.sum",
+    "*.lock",
+    "*.lockb",
+    "*.min.js",
+    "*.min.css",
+    "dist/",
+    "build/",
+    ".next/"
+  ],
+  "noDeletePaths": [
+    "LICENSE",
+    "README.md",
+    "CHANGELOG.md",
+    "SECURITY.md",
+    "CONTRIBUTING.md",
+    ".git/",
+    ".gitignore",
+    ".gitattributes",
+    ".github/",
+    "Dockerfile",
+    "docker-compose.yml",
+    ".dockerignore"
+  ]
+}

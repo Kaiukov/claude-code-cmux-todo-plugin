@@ -16,16 +16,22 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 GIT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-RULES_FILE="$GIT_ROOT/.pi/damage-control-rules.yaml"
+RULES_FILE="$GIT_ROOT/.pi/damage-control-rules.json"
 AGENT_SPAWN="$REPO_ROOT/skills/cmux-agent-workflows/scripts/agent-spawn.sh"
 FAILURES=0
 
 pass() { echo "PASS: $*"; }
 fail() { echo "FAIL: $*"; FAILURES=$((FAILURES + 1)); }
 
-# ── Helper: extract regex patterns from the YAML rules file ─────────────
+# ── Helper: extract regex patterns from the JSON rules file ────────────
 extract_patterns() {
-  grep -E "^[[:space:]]+- pattern:" "$RULES_FILE" | sed "s/.*pattern: *'//;s/'.*//"
+  python3 -c "
+import json, sys
+with open('$RULES_FILE') as f:
+    rules = json.load(f)
+for r in rules.get('bashToolPatterns', []):
+    print(r['pattern'])
+"
 }
 
 # ── Helper: test a regex pattern against a command string using python3 ──
@@ -67,13 +73,13 @@ else
 fi
 
 # ══════════════════════════════════════════════════════════════════════
-# 2. YAML parses (python3 yaml)
+# 2. JSON parses (python3 json)
 # ══════════════════════════════════════════════════════════════════════
-echo "=== Test 3: YAML parses ==="
-if python3 -c "import yaml,sys; yaml.safe_load(open('$RULES_FILE'))" 2>/dev/null; then
-  pass "YAML parses via python3"
+echo "=== Test 3: JSON parses ==="
+if python3 -c "import json; json.load(open('$RULES_FILE'))" 2>/dev/null; then
+  pass "JSON parses via python3"
 else
-  fail "YAML parse failed via python3"
+  fail "JSON parse failed via python3"
 fi
 
 # ══════════════════════════════════════════════════════════════════════
@@ -110,7 +116,12 @@ check_rule_substring "fork bomb"           ':\(\)'
 # 4. At least 2 ask patterns present
 # ══════════════════════════════════════════════════════════════════════
 echo "=== Test 5: ask patterns (min 2) ==="
-ASK_COUNT=$(grep -c 'ask:[[:space:]]*true' "$RULES_FILE" || true)
+ASK_COUNT=$(python3 -c "
+import json
+with open('$RULES_FILE') as f:
+    rules = json.load(f)
+print(sum(1 for r in rules.get('bashToolPatterns', []) if r.get('ask')))
+" || echo 0)
 if [[ "$ASK_COUNT" -ge 2 ]]; then
   pass "ask patterns found: $ASK_COUNT (>= 2)"
 else
@@ -293,6 +304,36 @@ test_regex_match "safe: rm file.txt"       "$RM_RF_PATTERN"      "rm file.txt"  
 test_regex_match "safe: --force-with-lease" "$GIT_FORCE_PATTERN" "git push origin main --force-with-lease" "no"
 test_regex_match "safe: git reset --soft"  '\bgit\s+reset\s+--hard\b'  "git reset --soft HEAD~1" "no"
 test_regex_match "safe: mkdir not mkfs"    '\bmkfs\.'            "mkdir -p /tmp/foo"           "no"
+
+# ══════════════════════════════════════════════════════════════════════
+# 8. damage-control.ts has NO external yaml import (#91 regression fix)
+# ══════════════════════════════════════════════════════════════════════
+echo "=== Test 10: no external yaml import in damage-control.ts ==="
+DC_TS="$GIT_ROOT/.pi/extensions/damage-control.ts"
+if grep -nE "from \"yaml\"|require\(['\"]yaml" "$DC_TS"; then
+  fail "damage-control.ts STILL imports external yaml module"
+else
+  pass "no yaml import in damage-control.ts"
+fi
+
+# ══════════════════════════════════════════════════════════════════════
+# 9. pi runtime smoke: load the extension in pi (skip if pi absent)
+# ══════════════════════════════════════════════════════════════════════
+echo "=== Test 11: pi runtime smoke ==="
+if command -v pi &>/dev/null; then
+  PI_OUTPUT="$(pi --no-extensions -e "$DC_TS" -p --no-session "say ok" 2>&1)" || PI_RC=$?
+  if echo "$PI_OUTPUT" | grep -qE "Cannot find module|Failed to load extension"; then
+    fail "pi runtime smoke: extension load error detected"
+    echo "  pi output: $PI_OUTPUT"
+  elif [[ "${PI_RC:-0}" -ne 0 ]]; then
+    fail "pi runtime smoke: pi exited non-zero (rc=${PI_RC:-0})"
+    echo "  pi output: $PI_OUTPUT"
+  else
+    pass "pi runtime smoke: extension loaded cleanly"
+  fi
+else
+  echo "SKIP: pi binary not found — skipping runtime smoke"
+fi
 
 # ══════════════════════════════════════════════════════════════════════
 # Summary

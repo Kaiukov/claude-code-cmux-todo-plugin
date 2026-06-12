@@ -16,7 +16,6 @@
 
 import type { ExtensionAPI, ToolCallEvent } from "@mariozechner/pi-coding-agent";
 import { isToolCallEventType } from "@mariozechner/pi-coding-agent";
-import { parse as yamlParse } from "yaml";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
@@ -97,8 +96,8 @@ export default function (pi: ExtensionAPI) {
 
   // ── Load rules on session start ──────────────────────────────────────
   pi.on("session_start", async (_event, ctx) => {
-    const projectRulesPath = path.join(ctx.cwd, ".pi", "damage-control-rules.yaml");
-    const globalRulesPath = path.join(os.homedir(), ".pi", "damage-control-rules.yaml");
+    const projectRulesPath = path.join(ctx.cwd, ".pi", "damage-control-rules.json");
+    const globalRulesPath = path.join(os.homedir(), ".pi", "damage-control-rules.json");
     const rulesPath = fs.existsSync(projectRulesPath)
       ? projectRulesPath
       : fs.existsSync(globalRulesPath)
@@ -108,7 +107,7 @@ export default function (pi: ExtensionAPI) {
     try {
       if (rulesPath) {
         const content = fs.readFileSync(rulesPath, "utf8");
-        const loaded = yamlParse(content) as Partial<Rules>;
+        const loaded = JSON.parse(content) as Partial<Rules>;
         rules = {
           bashToolPatterns: loaded.bashToolPatterns || [],
           zeroAccessPaths: loaded.zeroAccessPaths || [],
@@ -126,7 +125,7 @@ export default function (pi: ExtensionAPI) {
         );
       } else {
         ctx.ui.notify(
-          "🛡️ Damage-Control: No rules found at .pi/damage-control-rules.yaml (project or global)"
+          "🛡️ Damage-Control: No rules found at .pi/damage-control-rules.json (project or global)"
         );
       }
     } catch (err) {

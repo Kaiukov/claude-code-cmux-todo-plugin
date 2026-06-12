@@ -26,6 +26,10 @@ This project adheres to semantic versioning.
   convention, and forbidden paths, plus a guide in docs/task-spec-template.md (L10).
 
 ### Fixed
+- Damage-control Pi extension no longer imports the unavailable `yaml` module:
+  rules moved to `.pi/damage-control-rules.json` and parsed with `JSON.parse`,
+  fixing a startup crash ("Cannot find module 'yaml'") that broke pi in every
+  worktree. Rule semantics unchanged (#91).
 - Completion-wait now filters the cmux event stream by worker cwd (no cross-wake
   between parallel workers) and tears down its event listener without leaking
   `cmux events` processes (#92).

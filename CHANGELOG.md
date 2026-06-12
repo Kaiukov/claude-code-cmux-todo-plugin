@@ -24,6 +24,7 @@ This project adheres to semantic versioning.
 - `test_board_model.sh` — 58 tests covering validation, operations, resolution, persistence, and backward compatibility (#72).
 
 ### Fixed
+- SessionStart hook: path-independent board-status resolution, bounded output (#104).
 - OpenCode board tools renamed from dotted (`board.status`/`board.next`/`board.sync`) to underscore (`board_status`/`board_next`/`board_sync`) so providers that enforce the `^[a-zA-Z0-9_-]+$` tool-name pattern (e.g. DeepSeek) accept them instead of erroring on every call (#81).
 - Agent-spawn surface race: parse the authoritative surface ref directly from `cmux new-split` output instead of before/after whole-tree diffing + `sleep 1` + `comm -13`, eliminating a race where two parallel spawns could select the same surface (#77).
 

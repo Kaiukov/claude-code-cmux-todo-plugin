@@ -2,6 +2,6 @@
   "$schema": "https://opencode.ai/config.json",
   "plugin": ["./plugins/cmux-board.mjs"],
   "skills": {
-    "paths": ["../skills"]
+    "paths": ["skills"]
   }
 }

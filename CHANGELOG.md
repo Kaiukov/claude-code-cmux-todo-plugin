@@ -5,6 +5,8 @@ This project adheres to semantic versioning.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-06-13
+
 ### Added
 - Balanced grid layout for agent spawning: the orchestrator now selects a target
   surface explicitly and alternates split direction to build an even grid

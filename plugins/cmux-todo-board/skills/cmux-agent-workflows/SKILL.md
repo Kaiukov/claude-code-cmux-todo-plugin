@@ -17,51 +17,33 @@ KV-binding traps below).
 
 ## Supported agent backends
 
-The spawn/send/kill helpers are **agent-agnostic** — they dispatch to either
-`opencode` or `codex` based on the model name. Same rock-band tab names, same
-cmux hook integration, same worktree flow; only the launch command and the
-ready-screen markers differ.
+The spawn/send/kill helpers dispatch to `pi` as the sole worker runtime.
+Same rock-band tab names, same cmux hook integration, same worktree flow.
 
-| Backend | Binary  | Launched as                                                     | Ready pattern on screen    |
-| ------- | ------- | --------------------------------------------------------------- | -------------------------- |
-| opencode | `opencode` | `cd <wt> && opencode --model <model>`                          | `Build · <model>` banner   |
-| codex    | `codex`    | `codex --cd <wt> -m <model> -a never -s danger-full-access [<extra…>]` | `OpenAI Codex (v…)` banner |
+| Backend | Binary | Launched as                                              | Ready pattern on screen        |
+| ------- | ------ | -------------------------------------------------------- | ------------------------------ |
+| pi      | `pi`   | `cd <wt> && pi --provider <p> --model <m> [--thinking …]` | `(auto)`, `(sub)`, esc interrupt |
 
-The codex launch form is equivalent to `--dangerously-bypass-approvals-and-sandbox`:
-`-a never` disables the approval prompts and `-s danger-full-access` lifts the
-sandbox so the agent can write inside its worktree without workspace-write
-prompts. Match opencode's headless posture (the worktree IS the trust boundary).
+Auto-detect rule: agent kind is always `pi` (the only runtime).
 
-Auto-detect rule (used when `--agent` is not passed): if the model string
-contains `/` (provider/model form) → opencode; if it starts with
-`gpt-*` / `o1-*` / `o3-*` / `o4-*` / `codex*` / `chatgpt-*`
-(case-insensitive, e.g. `gpt-5.4`, `gpt-5.4-mini`) → codex; otherwise opencode.
-
-For codex the spawn script also auto-accepts the one-time "Do you trust the
-contents of this directory?" prompt (send `1` + Enter) so the agent doesn't
-sit waiting on it — delegation agents own their worktree, so accepting the
-trust prompt is safe.
+The pi spawn script pre-seeds worktree trust in `~/.pi/agent/trust.json` so
+the agent never sits waiting on a trust prompt.
 
 `cmux hooks` install once per machine (one-line, idempotent):
 
 ```bash
-yes | cmux hooks opencode install
-yes | cmux hooks opencode install --feed
-yes | cmux hooks codex install
+yes | cmux hooks pi install
 ```
-
-Codex ships its own per-process hooks (no `--feed` needed — codex exposes
-approvals through `PermissionRequest` / `PreToolUse`).
 
 ## Scripts (in `scripts/`)
 
 | Script | Purpose | Example |
 |---|---|---|
 | `wt-new.sh <branch> <dir>` | New worktree (base overridable via `BASE_REF` env) + copy `.env` if present + `bun install` only if `package.json` exists | `wt-new.sh feat/foo ../wt-feat-foo` |
-| `agent-spawn.sh <dir> <wt> <model> [label] [extra agent args...] [--agent openencode\|codex]` | Split pane, boot agent, wait until ready, auto-name tab (random unused band) → echoes surface ref | `agent-spawn.sh right $WT opencode-go/deepseek-v4-pro TASK` (opencode auto-detect) <br> `agent-spawn.sh right $WT gpt-5.4 TASK -c model_reasoning_effort=high --agent codex` (codex with reasoning effort) |
+| `agent-spawn.sh <dir> <wt> <model> [label] [extra agent args...] [--agent pi]` | Split pane, boot agent, wait until ready, auto-name tab (random unused band) → echoes surface ref | `agent-spawn.sh right $WT opencode-go/deepseek-v4-pro TASK` (pi auto-detect) |
 | `agent-send.sh <surface> <text…>` | Send a prompt + Enter (stdin for long prompts) | `agent-send.sh surface:172 "run tests, paste output"` |
 | `agent-screen.sh <surface> [lines]` | Read a surface screen | `agent-screen.sh surface:172 30` |
-| `agent-kill.sh <surface> [--agent opencode\|codex] [--close]` | Kill the agent proc by tty, optionally close split | `agent-kill.sh surface:172 --agent codex --close` |
+| `agent-kill.sh <surface> [--agent pi] [--close]` | Kill the agent proc by tty, optionally close split | `agent-kill.sh surface:172 --agent pi --close` |
 | `agent-notify.sh --task <id> --surface <ref> --status success\|failure [--branch <b>]` | Agent's FINAL step: emit CTB-DONE payload via `cmux notify` (structured flags: `--title --body --surface`) or stdout (FALLBACK). Never hard-fails. | `agent-notify.sh --task 32 --surface surface:172 --status success --branch feat/foo` |
 | `poll-wait.sh --surface <ref> --branch <name> [--task <id>] [--event-timeout <s>] [--total-timeout <s>]` | **PRIMARY** dual-source wait: event-driven (`cmux events` → agent.hook.Stop / lifecycle idle / CTB-DONE) with `poll-push.sh` fallback. Run with `run_in_background:true` | `poll-wait.sh --surface surface:172 --branch feat/foo --task 44 --total-timeout 600` |
 | `poll-push.sh <branch> [int] [timeout]` | **FALLBACK** git-poll: polls origin until branch pushed; print PR. Used internally by `poll-wait.sh`; not called directly in the new delegation cycle. | `poll-push.sh feat/foo 30 1800` |
@@ -96,21 +78,7 @@ See the [canonical delegation cycle in `docs/ORCHESTRATOR.md`](../../docs/ORCHES
   Pass the tier name directly as the `<model>` arg to `agent-spawn.sh`; it resolves
   automatically. Raw model ids still work unchanged.
 
-## Codex-specific gotchas (opencode agents are unaware of these)
 
-- **Trust prompt on first launch in a new dir.** A brand-new worktree outside
-  `~/.codex/config.toml`'s `[projects.*]` trust list shows a "Do you trust the
-  contents of this directory?" dialog. The spawn script auto-accepts it.
-  If you ever spawn codex by hand and it sits idle on that prompt, hit `1`
-  then Enter.
-- **Model gating on ChatGPT accounts.** OpenAI's `gpt-5-codex` is only
-  available with a paid OpenAI API key. If you're logged in with a ChatGPT
-  Plus/Pro account, fall back to `gpt-5`, `gpt-5.5`, `o3`, `o4-mini` — or
-  `codex` (no `-m`) which uses your `~/.codex/config.toml` default.
-- **MCP warnings ≠ errors.** On startup codex may print
-  `⚠ The cloudflare-api MCP server is not logged in. Run \`codex mcp login …\``
-  for MCP servers that aren't authenticated. These are warnings; codex will
-  keep working. Don't mistake them for fatal errors in your wait loop.
 
 ## Live-deploy traps (wrangler 4.x) — why mocks aren't enough
 

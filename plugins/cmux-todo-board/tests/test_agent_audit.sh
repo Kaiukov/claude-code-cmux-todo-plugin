@@ -51,7 +51,7 @@ has_agent_naming() {
 }
 
 agent_kill_pattern() {
-  printf '%s' 'opencode|codex|node|bun'
+  printf '%s' 'pi --provider|pi --model'
 }
 
 failures=0
@@ -301,14 +301,14 @@ else
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Test 7: agent-kill.sh pattern covers expected binaries
+# Test 7: agent-kill.sh pattern covers pi binary
 # ═══════════════════════════════════════════════════════════════════════════════
 echo "=== Test 7: agent_kill_pattern ==="
 pattern=$(agent_kill_pattern "")
-if echo "$pattern" | grep -q "opencode" && echo "$pattern" | grep -q "codex"; then
+if echo "$pattern" | grep -q "pi --provider" && echo "$pattern" | grep -q "pi --model"; then
   echo "PASS (pattern: $pattern)"
 else
-  echo "FAIL: pattern missing expected binaries: $pattern"
+  echo "FAIL: pattern missing pi patterns: $pattern"
   failures=$((failures + 1))
 fi
 

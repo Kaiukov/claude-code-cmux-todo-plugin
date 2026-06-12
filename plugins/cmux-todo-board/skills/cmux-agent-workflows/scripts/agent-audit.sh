@@ -61,7 +61,7 @@ has_agent_naming() {
   return 1
 }
 
-# True if an agent process (opencode/codex) is running in the given tty.
+# True if an agent process (pi) is running in the given tty.
 agent_process_running() {
   local tty="$1"
   local pattern pids

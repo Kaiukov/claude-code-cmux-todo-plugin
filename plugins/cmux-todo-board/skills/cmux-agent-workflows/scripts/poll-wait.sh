@@ -19,10 +19,9 @@
 # Uses a bash-native watchdog instead of GNU timeout.
 #
 # The event listener is intentionally enabled whenever `cmux` is available.
-# Codex hooks live in ~/.codex/hooks.json, while the completion signal itself
-# is the cmux notification stream. The idle lifecycle match remains a bonus for
-# agents that emit it, but CTB-DONE must still wake the orchestrator even when
-# no opencode plugin files are present.
+# The completion signal is the cmux notification stream. The idle lifecycle
+# match remains a bonus for agents that emit it, but CTB-DONE must still wake
+# the orchestrator even when no plugin files are present.
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; source "$DIR/lib.sh"
 

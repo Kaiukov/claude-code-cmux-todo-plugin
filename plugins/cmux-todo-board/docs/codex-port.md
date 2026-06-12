@@ -61,16 +61,16 @@ Worker backend selection is config-driven. New scripts must not hardcode model
 IDs.
 
 - `bin/board-config --get-model <tier>` resolves the tier to a model id.
-- `skills/cmux-agent-workflows/scripts/agent-spawn.sh <split> <wt> <model|tier> [label] [extra] --agent codex|opencode`
-  routes the pane to the correct backend.
-- Concrete Codex example:
+- `skills/cmux-agent-workflows/scripts/agent-spawn.sh <split> <wt> <model|tier> [label] [extra] --agent pi`
+  routes the pane to the pi backend.
+- Concrete Pi example:
 
   ```bash
-  agent-spawn.sh right <wt> simple <label> -c model_reasoning_effort=high --agent codex
+  agent-spawn.sh right <wt> simple <label> --agent pi
   ```
 
-- `agent-send.sh` and `agent-kill.sh` accept the same backend split via
-  `--kind codex` / `--agent codex`.
+- `agent-send.sh` and `agent-kill.sh` accept the same backend via
+  `--kind pi` / `--agent pi`.
 
 ## Completion Loop
 
@@ -83,11 +83,11 @@ Workers end with the shared completion path:
 - `skills/cmux-agent-workflows/scripts/poll-wait.sh` is the bounded consumer:
   it listens to `cmux events --category agent --category notification` and
   wakes on either the agent idle lifecycle or the CTB-DONE notification body.
-- For Codex, the hook bridge lives in `~/.codex/hooks.json`; the completion
-  wakeup does not depend on the opencode plugin files being present.
+- The completion wakeup uses the cmux notification stream and does not depend
+  on plugin files being present.
 
-There is no Codex-specific finish path. The same `agent-notify.sh` and
-`poll-push.sh` logic is reused by both backends.
+There is no backend-specific finish path. The same `agent-notify.sh` and
+`poll-push.sh` logic is reused.
 
 **Orchestrator standby:** After dispatching, the orchestrator waits in the
 background on `poll-wait.sh` and does not read or type into the agent pane.
@@ -99,7 +99,7 @@ rule in `docs/ORCHESTRATOR.md`](ORCHESTRATOR.md#standby-after-dispatch).
 
 The bounded worker final-report format lives at
 `skills/cmux-agent-workflows/templates/worker-prompt.md`. It is backend-agnostic
-and should be used for both Codex and opencode workers.
+and should be used for pi workers.
 
 Required final-report fields:
 
@@ -117,16 +117,15 @@ Keep the report to 20 lines or fewer.
 
 ## GPT-As-Orchestrator Note
 
-If GPT or Codex is acting as the orchestrator, keep the same board workflow and
-cmux runtime. The only thing that changes is the worker backend flag:
-`--agent codex` when dispatching a Codex worker.
+If GPT is acting as the orchestrator, keep the same board workflow and
+cmux runtime. The worker backend is always `--agent pi`.
 
 ## Manual Smoke Test
 
 1. Run `/board-pull --repo owner/repo`.
 2. Mark one issue `ready` in GitHub if none are ready yet.
 3. Run `/board-plan`.
-4. Run `/board-run-ready` and confirm a Codex worker pane launches.
+4. Run `/board-run-ready` and confirm a pi worker pane launches.
 5. Wait for the worker's final report and `CTB-DONE` notify.
 6. Run the hard gate yourself: full tests plus `claude plugin validate .`.
 7. Merge only after the hard gate passes.

@@ -35,7 +35,7 @@ $S/agent-send.sh "$SURF" < dispatch-prompt.txt      # 3. dispatch
 $S/poll-wait.sh --surface "$SURF" --branch feat/foo # 4. wait
 $S/verify.sh "$WT"                                   # 5. gate
 $S/pr-finish.sh 42 "$WT"                             # 6. merge
-$S/agent-kill.sh "$SURF" --agent opencode --close    # 7. cleanup
+$S/agent-kill.sh "$SURF" --agent pi --close    # 7. cleanup
 ```
 
 Model tiers: `flash`, `pro`, `review`, `simple`, `top` — resolved via `.tasks/config.json`.

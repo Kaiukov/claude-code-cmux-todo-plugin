@@ -54,14 +54,11 @@ pick_band() {
   fi
 }
 
-# ─── Agent-kind dispatch (opencode | codex) ────────────────────────────────
-# Supported agent backends the spawn/send/kill scripts understand.
-#   opencode : `opencode --model <provider/model>`
-#   codex    : `codex --cd <wt> -m <model> -a never`
-# Agents share the same cmux hooks + tab-naming conventions; only the launch
-# command and the screen-readiness markers differ.
+# ─── Agent-kind dispatch (pi) ─────────────────────────────────────────────
+# The worker runtime is pi-only. The spawn/send/kill scripts share the same
+# cmux hooks + tab-naming conventions.
 
-AGENT_KINDS=(opencode codex pi)
+AGENT_KINDS=(pi)
 
 agent_kind_supported() {
   local k="$1"
@@ -69,43 +66,20 @@ agent_kind_supported() {
   return 1
 }
 
-# Auto-detect agent kind from a model identifier when --agent is omitted.
-# Codex-style model names: gpt-*, o1-*, o3-*, o4-*, codex*  (and bare names like
-# "gpt-5" or "o3-mini" used by `codex -m`). Anything containing a "/" is an
-# opencode provider/model string (e.g. "deepseek/deepseek-v4-pro").
+# Agent kind is always pi (the only runtime). Kept as a function for
+# backward-compatible callers.
 agent_kind_detect() {
-  local model="$1"
-  if [[ -z "$model" ]]; then echo "opencode"; return; fi
-  # Provider/model form is always opencode (e.g. "deepseek/deepseek-v4-pro").
-  if [[ "$model" == */* ]]; then echo "opencode"; return; fi
-  # Lowercase via tr (macOS bash 3.2 lacks ${var,,}). Codex accepts mixed case
-  # in config but dispatch rules must be case-insensitive.
-  local lc
-  lc="$(printf '%s' "$model" | tr '[:upper:]' '[:lower:]')"
-  case "$lc" in
-    gpt-*|o1-*|o3-*|o4-*|codex*|chatgpt-*) echo "codex" ;;
-    *) echo "opencode" ;;
-  esac
+  echo "pi"
 }
 
-# Build the launch command for a given agent kind. Echoes a single string that
-# the caller pipes to `cmux send --surface <s> "..."` followed by a newline.
-# For the pi agent kind ONLY, the next two positional args are optionally
-# consumed as thinking (Pi enum: off|minimal|low|medium|high|xhigh) and tools.
-# Remaining args after that are appended verbatim. Non-pi kinds are unaffected.
+# Build the launch command for pi (the only agent kind). Echoes a single
+# string that the caller pipes to `cmux send --surface <s> "..."` followed by
+# a newline. The next two positional args after model are optionally consumed
+# as thinking (Pi enum: off|minimal|low|medium|high|xhigh) and tools.
+# Remaining args after that are appended verbatim. Non-pi kinds die.
 agent_launch_cmd() {
   local kind="$1" wt="$2" model="$3"; shift 3
   case "$kind" in
-    opencode)
-      printf "cd '%s' && opencode --model %s" "$wt" "$model"
-      ;;
-    codex)
-      # -a never : never ask for approval (headless delegation agent)
-      # -s danger-full-access : skip sandbox so the agent can write inside its
-      #   own worktree without workspace-write prompts. Match opencode's
-      #   effective sandbox posture (a worktree is the trust boundary).
-      printf "codex --cd '%s' -m %s -a never -s danger-full-access" "$wt" "$model"
-      ;;
     pi)
       local provider="${model%%/*}" pi_model="${model#*/}"
       if [[ "$provider" == "$model" ]]; then
@@ -128,6 +102,7 @@ agent_launch_cmd() {
       [[ -n "$thinking" ]] && printf ' --thinking %s' "$thinking"
       [[ -n "$tools" ]] && printf ' --tools %s' "$tools"
       ;;
+    *) die "unsupported agent kind: $kind  (only pi is supported)" ;;
   esac
   if (( $# > 0 )); then printf ' %s' "$@"; fi
   printf '\n'
@@ -137,70 +112,25 @@ agent_launch_cmd() {
 # is grepped for these (extended regex). The trust prompt for codex is handled
 # separately (sends "1" + Enter to auto-accept the new directory).
 agent_ready_patterns() {
-  case "$1" in
-    opencode)
-      # Input-ready markers that survive even when the TUI renders as
-      # multi-column boxes in very narrow split panes (#54). The model
-      # banner becomes column-interleaved garbage, but these horizontal
-      # command-bar tokens reliably survive whitespace+box-char stripping:
-      #   anything  — the empty-input placeholder in the prompt box
-      #   agents    — the agents command-bar button
-      #   commands  — the commands command-bar button
-      printf '%s' 'anything|agents|commands'
-      ;;
-    codex)
-      # The codex TUI shows the OpenAI Codex banner + model id in the prompt
-      # box footer (e.g. "gpt-5-codex medium · /path"). Match on the
-      # distinctive "OpenAI Codex" header.
-      printf '%s' 'OpenAI Codex|codex-cli|_> OpenAI Codex'
-      ;;
-    pi)
-      # The Pi prompt footer always shows (auto) or (sub) once input-ready;
-      # a fresh prompt also shows an "esc to interrupt" hint.
-      printf '%s' '\(auto\)|\(sub\)|esc.{0,3}interrupt'
-      ;;
-  esac
+  # The Pi prompt footer always shows (auto) or (sub) once input-ready;
+  # a fresh prompt also shows an "esc to interrupt" hint.
+  printf '%s' '\(auto\)|\(sub\)|esc.{0,3}interrupt'
 }
 
-# True if the screen currently shows the codex "trust this directory?" prompt.
-# We auto-accept for delegation agents (they own their worktree).
-is_trust_prompt() {
-  cmux read-screen --surface "$1" --lines 30 2>/dev/null \
-    | grep -qE 'Do you trust the contents of this directory\?|Yes, continue'
-}
-
-# Wait until an agent (opencode or codex) is ready in a surface.
-# Handles the codex trust prompt by sending "1\n" to auto-accept.
+# Wait until a pi agent is ready in a surface.
 #   surface : the cmux surface ref (e.g. surface:172)
-#   kind    : opencode | codex
+#   kind    : pi (only supported kind; kept for callers)
 #   timeout : seconds (default 90)
 wait_agent_ready() {
-  local surface="$1" kind="${2:-opencode}" timeout="${3:-90}" waited=0
-  local pattern trust_seen=""
+  local surface="$1" kind="${2:-pi}" timeout="${3:-90}" waited=0
+  local pattern
   pattern="$(agent_ready_patterns "$kind")"
   while (( waited < timeout )); do
     local screen normalized
     screen="$(cmux read-screen --surface "$surface" --lines 40 2>/dev/null || true)"
-    # Normalize: opencode TUI can render as multi-column boxes in narrow
-    # panes so we delete ALL whitespace + box-drawing chars (#54).
-    # Codex TUI does not have this problem — collapse whitespace only.
-    # Pi uses the same normalization as opencode (box-drawing chars in TUI).
+    # Normalize: delete ALL whitespace + box-drawing chars for pi TUI (#54).
     # Box chars: ┃┏┓┗┛━╹▀│─┌┐└┘●
-    if [[ "$kind" == "opencode" || "$kind" == "pi" ]]; then
-      normalized="$(printf '%s' "$screen" | tr -d '[:space:]┃┏┓┗┛━╹▀│─┌┐└┘●')"
-    else
-      normalized="$(printf '%s' "$screen" | tr -s ' \n' ' ')"
-    fi
-    if [[ "$kind" == "codex" && -z "$trust_seen" ]] \
-         && grep -qE 'Do you trust the contents of this directory' <<<"$screen"; then
-      log "auto-accepting codex trust prompt in $surface"
-      cmux send --surface "$surface" -- "1" >&2
-      sleep 1
-      cmux send-key --surface "$surface" "Enter" >&2
-      trust_seen=1
-      sleep 3; waited=$((waited+4))
-      continue
-    fi
+    normalized="$(printf '%s' "$screen" | tr -d '[:space:]┃┏┓┗┛━╹▀│─┌┐└┘●')"
     if grep -qE "$pattern" <<<"$normalized"; then
       return 0
     fi
@@ -212,10 +142,5 @@ wait_agent_ready() {
 # ps-grep pattern for processes to kill when tearing down an agent surface.
 # Covers the main agent binary + helpers (node/bun for embedded JS runtimes).
 agent_kill_pattern() {
-  case "$1" in
-    opencode) printf '%s' 'opencode|node|bun' ;;
-    codex)    printf '%s' 'codex|node|bun' ;;
-    pi)       printf '%s' 'pi --provider|pi --model' ;;
-    *)        printf '%s' 'opencode|codex|node|bun' ;;
-  esac
+  printf '%s' 'pi --provider|pi --model'
 }

@@ -123,20 +123,20 @@ test_poll_fallback() {
       --event-timeout 2 --total-timeout 30
 }
 
-# ── Test C: Codex notification wakes waiter without opencode plugin ──
-# Remove the opencode plugin file but keep cmux events live. The waiter should
+# ── Test C: Notification wakes waiter without plugin files ──
+# Remove the plugin file but keep cmux events live. The waiter should
 # still consume CTB-DONE from the notification stream instead of falling back
 # to the git poller.
-test_codex_notify_match() {
+test_notify_match() {
   local TMPENV="$1"
   rm -f "$TMPENV/.config/opencode/plugins/cmux-session.js"
   cat > "$TMPENV/events.ndjson" <<'EOF'
-{"name":"notification.created","category":"notification","payload":{"title":"CTB-DONE","body":"CTB-DONE task=71 surface=surface:174 status=success branch=feat/test-codex"},"surface_id":"surface:174"}
+{"name":"notification.created","category":"notification","payload":{"title":"CTB-DONE","body":"CTB-DONE task=71 surface=surface:174 status=success branch=feat/test-notify"},"surface_id":"surface:174"}
 EOF
   CMUX_EVENT_FILE="$TMPENV/events.ndjson" CMUX_EVENT_SLEEP=30 \
     POLL_RESULT=PUSHED POLL_DELAY=5 POLL_SLEEP=30 \
     "$TMPENV/poll-wait.sh" \
-      --surface surface:174 --branch feat/test-codex \
+      --surface surface:174 --branch feat/test-notify \
       --event-timeout 3 --total-timeout 30
 }
 
@@ -218,9 +218,9 @@ echo "--- Test B: poll fallback → method=poll ---"
 output=$(run_in_mock_env "Test B: poll fallback" test_poll_fallback 2>&1) || true
 assert_output_contains "$output" "COMPLETE surface=surface:173 branch=feat/test-poll method=poll" "poll fallback output"
 
-echo "--- Test C: Codex notification wakes waiter without opencode plugin ---"
-output=$(run_in_mock_env "Test C: codex notify" test_codex_notify_match 2>&1) || true
-assert_output_contains "$output" "COMPLETE surface=surface:174 branch=feat/test-codex method=event" "codex notify event match"
+echo "--- Test C: notification wakes waiter without plugin files ---"
+output=$(run_in_mock_env "Test C: notify" test_notify_match 2>&1) || true
+assert_output_contains "$output" "COMPLETE surface=surface:174 branch=feat/test-notify method=event" "notify event match"
 
 echo "--- Test D: arg parsing ---"
 output=$(run_in_mock_env "Test D: arg parsing" test_arg_parsing 2>&1) || true

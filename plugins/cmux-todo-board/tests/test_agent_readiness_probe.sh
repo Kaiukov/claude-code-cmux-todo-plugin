@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
-# Tests for reflow-tolerant agent readiness probe (#54).
-# Verifies that stripping ALL whitespace + box-drawing chars and matching
-# command-bar tokens (anything|agents|commands) correctly detects the opencode
-# TUI even when it renders as multi-column boxes in very narrow split panes.
+# Tests for reflow-tolerant pi agent readiness probe (#54).
+# Verifies that stripping ALL whitespace + box-drawing chars correctly detects
+# the pi TUI even when it renders as multi-column boxes in narrow panes.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 LIB_FILE="$REPO_ROOT/skills/cmux-agent-workflows/scripts/lib.sh"
-FIXTURE="$SCRIPT_DIR/fixtures/opencode-narrow-pane-footer.txt"
+FIXTURE="$SCRIPT_DIR/fixtures/pi-ready-footer.txt"
 
 if [[ ! -f "$LIB_FILE" ]]; then
   echo "FAIL: lib.sh not found at $LIB_FILE"
@@ -23,93 +22,67 @@ source "$LIB_FILE"
 
 failures=0
 
-# Simulate the wait_agent_ready normalization logic
-# opencode: aggressive strip of whitespace + box-drawing chars
-# codex: collapse whitespace only (tr -s)
+# Simulate the wait_agent_ready normalization logic for pi:
+# aggressive strip of whitespace + box-drawing chars
 normalize_screen() {
-  local screen="$1" kind="${2:-opencode}"
-  if [[ "$kind" == "opencode" ]]; then
-    printf '%s' "$screen" | tr -d '[:space:]┃┏┓┗┛━╹▀│─┌┐└┘●'
-  else
-    printf '%s' "$screen" | tr -s ' \n' ' '
-  fi
+  printf '%s' "$1" | tr -d '[:space:]┃┏┓┗┛━╹▀│─┌┐└┘●'
 }
 
-# ── Test 1: Real narrow-pane fixture — NEW pattern accepts ──
-echo "=== Test 1: Narrow-pane fixture ACCEPTED by new pattern ==="
+pi_pattern="$(agent_ready_patterns pi)"
+
+# ── Test 1: Real pi-ready fixture matches (auto)/(sub) pattern ──
+echo "=== Test 1: pi-ready fixture ACCEPTED ==="
 fixture="$(cat "$FIXTURE")"
 normalized="$(normalize_screen "$fixture")"
-new_pattern="$(agent_ready_patterns opencode)"
-if grep -qE "$new_pattern" <<<"$normalized"; then
+if grep -qE "$pi_pattern" <<<"$normalized"; then
   echo "PASS"
 else
-  echo "FAIL: new pattern should accept narrow-pane fixture"
+  echo "FAIL: pi pattern should accept pi-ready fixture"
   failures=$((failures + 1))
 fi
 
-# ── Test 2: Real narrow-pane fixture — OLD pattern REJECTS ──
-echo "=== Test 2: Narrow-pane fixture REJECTED by old pattern ==="
-old_pattern='Build · |· DeepSeek|· GPT|^OpenCode|esc dismiss'
-if grep -qE "$old_pattern" <<<"$normalized"; then
-  echo "FAIL: old pattern should reject narrow-pane fixture (model banner is column-interleaved)"
-  failures=$((failures + 1))
-else
-  echo "PASS"
-fi
-
-# ── Test 3: Normal (wide, non-reflowed) footer — NEW pattern accepts ──
-echo "=== Test 3: Normal footer accepted ==="
-normal_screen='any command here   anything   agents  commands  esc dismiss'
+# ── Test 2: Normal (wide) pi prompt — pattern accepts ──
+echo "=== Test 2: Normal pi prompt accepted ==="
+normal_screen='(auto) esc to interrupt  pi ready'
 normal_norm="$(normalize_screen "$normal_screen")"
-if grep -qE "$new_pattern" <<<"$normal_norm"; then
+if grep -qE "$pi_pattern" <<<"$normal_norm"; then
   echo "PASS"
 else
-  echo "FAIL: normal footer should match new pattern"
+  echo "FAIL: normal pi prompt should match pattern"
   failures=$((failures + 1))
 fi
 
-# ── Test 4: Bare opencode splash — NEW pattern REJECTS (no false positive) ──
-echo "=== Test 4: Bare splash without command bar rejected ==="
-splash_screen='Welcome to OpenCode! Type your prompt below.'
-splash_norm="$(normalize_screen "$splash_screen")"
-if grep -qE "$new_pattern" <<<"$splash_norm"; then
-  echo "FAIL: bare splash should not match (no anything/agents/commands)"
+# ── Test 3: Bare shell line — pattern REJECTS (no false positive) ──
+echo "=== Test 3: Bare shell rejected ==="
+shell_screen='user@host ~ % '
+shell_norm="$(normalize_screen "$shell_screen")"
+if grep -qE "$pi_pattern" <<<"$shell_norm"; then
+  echo "FAIL: bare shell line should not match"
   failures=$((failures + 1))
 else
   echo "PASS"
 fi
 
-# ── Test 5: codex patterns still work (collapse normalization) ──
-echo "=== Test 5: codex readiness patterns ==="
-codex_screen='OpenAI Codex  gpt-5-codex medium'
-codex_norm="$(normalize_screen "$codex_screen" codex)"
-codex_pattern="$(agent_ready_patterns codex)"
-if grep -qE "$codex_pattern" <<<"$codex_norm"; then
+# ── Test 4: pi prompt with (sub) marker — pattern accepts ──
+echo "=== Test 4: (sub) pi prompt accepted ==="
+sub_screen='(sub) pi agent session'
+sub_norm="$(normalize_screen "$sub_screen")"
+if grep -qE "$pi_pattern" <<<"$sub_norm"; then
   echo "PASS"
 else
-  echo "FAIL: codex patterns should match"
+  echo "FAIL: (sub) pi prompt should match"
   failures=$((failures + 1))
 fi
 
-# ── Test 6: agents token alone (narrow pane, only command bar visible) ──
-echo "=== Test 6: agents token alone ==="
-agents_only='  agents  '
-agents_norm="$(normalize_screen "$agents_only")"
-if grep -qE "$new_pattern" <<<"$agents_norm"; then
+# ── Test 5: Narrow reflow stress — box-drawing chars stripped, pattern survives ──
+echo "=== Test 5: narrow-reflow stress ==="
+reflow_screen='┃ (auto) ┃ ┃ esc ┃ ┃ interrupt ┃'
+reflow_norm="$(normalize_screen "$reflow_screen")"
+if grep -qE "$pi_pattern" <<<"$reflow_norm"; then
   echo "PASS"
 else
-  echo "FAIL: agents token alone should match"
+  echo "FAIL: narrow-reflow pi prompt should match"
   failures=$((failures + 1))
-fi
-
-# ── Test 7: Previous v1 fix (tr -s collapse) would ALSO fail on fixture ──
-echo "=== Test 7: Previous tr -s fix fails on narrow-pane fixture ==="
-prev_normalized="$(printf '%s' "$fixture" | tr -s ' \n' ' ')"
-if grep -qE "$old_pattern" <<<"$prev_normalized"; then
-  echo "FAIL: previous tr -s fix should NOT rescue old pattern on multi-column fixture"
-  failures=$((failures + 1))
-else
-  echo "PASS"
 fi
 
 echo ""

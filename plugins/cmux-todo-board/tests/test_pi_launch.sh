@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Tests for Pi agent-kind launch path (#90).
-# Verifies provider/model split, ready/kill patterns, trust pre-seed
-# concepts, and regression-guards opencode/codex behavior.
+# Verifies provider/model split, ready/kill patterns, and trust pre-seed
+# concepts. Regression-asserts AGENT_KINDS is pi-only (#98).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -66,15 +66,22 @@ else
 fi
 
 # ══════════════════════════════════════════════════════════════════════
-# Test 4: agent_kind_supported pi → 0; opencode/codex still supported
+# Test 4: agent_kind_supported pi → 0; non-pi kinds rejected
 # ══════════════════════════════════════════════════════════════════════
 echo "=== Test 4: agent_kind_supported ==="
-for k in pi opencode codex; do
+if agent_kind_supported "pi"; then
+  echo "  pi: supported (PASS)"
+else
+  echo "  pi: NOT supported (FAIL)"
+  failures=$((failures + 1))
+fi
+# Non-pi kinds must NOT be supported
+for k in opencode codex; do
   if agent_kind_supported "$k"; then
-    echo "  $k: supported (PASS)"
-  else
-    echo "  $k: NOT supported (FAIL)"
+    echo "  $k: supported (FAIL — should be rejected)"
     failures=$((failures + 1))
+  else
+    echo "  $k: correctly rejected (PASS)"
   fi
 done
 
@@ -104,44 +111,33 @@ else
 fi
 
 # ══════════════════════════════════════════════════════════════════════
-# Test 6: opencode + codex launch_cmd UNCHANGED (regression guards)
+# Test 6: non-pi kind → agent_launch_cmd errors (regression #98)
 # ══════════════════════════════════════════════════════════════════════
-echo "=== Test 6: opencode launch_cmd unchanged ==="
-oc_cmd="$(agent_launch_cmd opencode "/tmp/wt" "deepseek/deepseek-v4-pro")"
-expected_oc="cd '/tmp/wt' && opencode --model deepseek/deepseek-v4-pro"
-if [[ "$oc_cmd" == "$expected_oc" ]]; then
-  echo "  opencode: PASS"
-else
-  echo "  opencode: FAIL — got '$oc_cmd'"
-  failures=$((failures + 1))
-fi
-
-echo "=== Test 7: codex launch_cmd unchanged ==="
-cx_cmd="$(agent_launch_cmd codex "/tmp/wt" "gpt-5-codex")"
-expected_cx="codex --cd '/tmp/wt' -m gpt-5-codex -a never -s danger-full-access"
-if [[ "$cx_cmd" == "$expected_cx" ]]; then
-  echo "  codex: PASS"
-else
-  echo "  codex: FAIL — got '$cx_cmd'"
-  failures=$((failures + 1))
-fi
+echo "=== Test 6: non-pi launch_cmd errors ==="
+for k in opencode codex; do
+  if (agent_launch_cmd "$k" "/tmp/wt" "p/model" 2>/dev/null); then
+    echo "  $k launch_cmd: FAIL (should error)"
+    failures=$((failures + 1))
+  else
+    echo "  $k launch_cmd: correctly failed (PASS)"
+  fi
+done
 
 # ══════════════════════════════════════════════════════════════════════
-# Test 8: codex ready pattern unchanged
+# Test 7: AGENT_KINDS contains exactly pi
 # ══════════════════════════════════════════════════════════════════════
-echo "=== Test 8: codex ready pattern unchanged ==="
-cx_pattern="$(agent_ready_patterns codex)"
-if [[ "$cx_pattern" == *"OpenAI Codex"* ]]; then
-  echo "  codex pattern: PASS"
+echo "=== Test 7: AGENT_KINDS=(pi) ==="
+if [[ "${AGENT_KINDS[*]}" == "pi" && "${#AGENT_KINDS[@]}" == "1" ]]; then
+  echo "PASS: AGENT_KINDS=(pi)"
 else
-  echo "  codex pattern: FAIL — got '$cx_pattern'"
+  echo "FAIL: AGENT_KINDS=(${AGENT_KINDS[*]})  (len=${#AGENT_KINDS[@]})"
   failures=$((failures + 1))
 fi
 
 # ══════════════════════════════════════════════════════════════════════
-# Test 9: pi kill pattern is precise (not bare 'pi')
+# Test 8: pi kill pattern is precise (not bare 'pi')
 # ══════════════════════════════════════════════════════════════════════
-echo "=== Test 9: pi kill pattern precision ==="
+echo "=== Test 8: pi kill pattern precision ==="
 pi_kill="$(agent_kill_pattern pi)"
 if [[ "$pi_kill" == "pi --provider|pi --model" ]]; then
   echo "  kill pattern: PASS"
@@ -158,9 +154,9 @@ else
 fi
 
 # ══════════════════════════════════════════════════════════════════════
-# Test 10: pi launch with extra args appended
+# Test 9: pi launch with extra args appended
 # ══════════════════════════════════════════════════════════════════════
-echo "=== Test 10: pi launch with extra args ==="
+echo "=== Test 9: pi launch with extra args ==="
 cmd="$(agent_launch_cmd pi "/tmp/wt" "p/m" extra1 extra2)"
 if [[ "$cmd" == *"extra1 extra2"* ]]; then
   echo "  extra args: PASS"
@@ -170,15 +166,15 @@ else
 fi
 
 # ══════════════════════════════════════════════════════════════════════
-# Test 11: opencode ready pattern unchanged
+# Test 10: repo grep — no surviving binary launch invocations (#98)
 # ══════════════════════════════════════════════════════════════════════
-echo "=== Test 11: opencode ready pattern unchanged ==="
-oc_pattern="$(agent_ready_patterns opencode)"
-if [[ "$oc_pattern" == *"anything"* && "$oc_pattern" == *"agents"* ]]; then
-  echo "  opencode pattern: PASS"
-else
-  echo "  opencode pattern: FAIL — got '$oc_pattern'"
+echo "=== Test 10: no legacy binary launchers in scripts ==="
+SCRIPTS_DIR="$REPO_ROOT/skills/cmux-agent-workflows/scripts"
+if grep -rnE "opencode --model|codex --cd" "$SCRIPTS_DIR" 2>/dev/null; then
+  echo "FAIL: legacy binary launch invocation found in scripts"
   failures=$((failures + 1))
+else
+  echo "PASS: no legacy binary launchers in scripts"
 fi
 
 echo ""

@@ -156,35 +156,9 @@ else
 fi
 
 # ══════════════════════════════════════════════════════════════════════
-# Test 7: opencode launch_cmd unchanged (regression)
+# Test 7: board-config --get-profile with individual selectors
 # ══════════════════════════════════════════════════════════════════════
-echo "=== Test 7: opencode launch_cmd unchanged ==="
-oc_cmd="$(agent_launch_cmd opencode "/tmp/wt" "deepseek/deepseek-v4-pro")"
-expected_oc="cd '/tmp/wt' && opencode --model deepseek/deepseek-v4-pro"
-if [[ "$oc_cmd" == "$expected_oc" ]]; then
-  echo "PASS"
-else
-  echo "FAIL: got '$oc_cmd'"
-  failures=$((failures + 1))
-fi
-
-# ══════════════════════════════════════════════════════════════════════
-# Test 8: codex launch_cmd unchanged (regression)
-# ══════════════════════════════════════════════════════════════════════
-echo "=== Test 8: codex launch_cmd unchanged ==="
-cx_cmd="$(agent_launch_cmd codex "/tmp/wt" "gpt-5-codex")"
-expected_cx="codex --cd '/tmp/wt' -m gpt-5-codex -a never -s danger-full-access"
-if [[ "$cx_cmd" == "$expected_cx" ]]; then
-  echo "PASS"
-else
-  echo "FAIL: got '$cx_cmd'"
-  failures=$((failures + 1))
-fi
-
-# ══════════════════════════════════════════════════════════════════════
-# Test 9: board-config --get-profile with individual selectors
-# ══════════════════════════════════════════════════════════════════════
-echo "=== Test 9: --get-profile selectors ==="
+echo "=== Test 7: --get-profile selectors ==="
 new_testdir
 provider="$("$BOARD_CONFIG" --get-profile backend --provider 2>&1)"
 if [[ "$provider" == "opencode-go" ]]; then
@@ -231,7 +205,7 @@ cleanup_testdir
 # ══════════════════════════════════════════════════════════════════════
 # Test 10: pi launch with extra args after thinking/tools
 # ══════════════════════════════════════════════════════════════════════
-echo "=== Test 10: pi launch with thinking + tools + extra args ==="
+echo "=== Test 8: pi launch with thinking + tools + extra args ==="
 cmd="$(agent_launch_cmd pi "/tmp/wt" "p/m" high read,bash extra1 extra2)"
 if [[ "$cmd" == *"--thinking high --tools read,bash extra1 extra2"* ]]; then
   echo "PASS"
@@ -243,7 +217,7 @@ fi
 # ══════════════════════════════════════════════════════════════════════
 # Test 11: full Pi thinking enum (off|minimal|low|medium|high|xhigh)
 # ══════════════════════════════════════════════════════════════════════
-echo "=== Test 11: full Pi thinking enum (off|minimal|low|medium|high|xhigh) ==="
+echo "=== Test 9: full Pi thinking enum (off|minimal|low|medium|high|xhigh) ==="
 for level in off minimal low medium high xhigh; do
   cmd="$(agent_launch_cmd pi "/tmp/wt" "p/m" "$level" "t1,t2")"
   if [[ "$cmd" == *"--thinking $level --tools t1,t2"* ]]; then
@@ -258,7 +232,7 @@ done
 # Test 12: end-to-end: resolved pi command from a profile contains
 #          --provider / --model / --thinking / --tools and NEVER --profile
 # ══════════════════════════════════════════════════════════════════════
-echo "=== Test 12: end-to-end profile→pi command ==="
+echo "=== Test 10: end-to-end profile→pi command ==="
 new_testdir
 # Simulate what agent-spawn.sh does when --profile backend is used
 profile_json="$("$BOARD_CONFIG" --get-profile backend --json 2>&1)"
@@ -278,15 +252,6 @@ if [[ "$cmd" != *"--profile"* ]]; then
   echo "  no --profile: PASS"
 else
   echo "  no --profile: FAIL — --profile leaked into '$cmd'"
-  failures=$((failures + 1))
-fi
-# Also verify that a non-pi caller whose first extra arg is a thinking word
-# is unaffected (the word stays as an extra arg, not consumed as thinking).
-codex_cmd="$(agent_launch_cmd codex "/tmp/wt" "gpt-5-codex" low medium)"
-if [[ "$codex_cmd" == *"low medium"* ]]; then
-  echo "  codex passthrough: PASS"
-else
-  echo "  codex passthrough: FAIL — got '$codex_cmd'"
   failures=$((failures + 1))
 fi
 cleanup_testdir

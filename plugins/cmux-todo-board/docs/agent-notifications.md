@@ -12,16 +12,10 @@
 
 ## Per-backend reliability
 
-### codex (OpenAI Codex CLI)
-Native `PreToolUse` / `PermissionRequest` hooks are the most reliable
-completion signal. The agent can emit a hook before its final tool use
-or on session close. No polling needed if hooks are configured.
-
-### opencode
-No native completion event. Fallback: poll the pane for terminal output
-or use `cmux notify` from the agent's final command. Screen-scraping
-the pane is possible but fragile; prefer `cmux notify` as the
-application-level signal with polling as backup.
+### pi (primary runtime)
+The pi agent emits completion via the cmux notification stream.
+Use `cmux notify` from the agent's final command as the
+application-level signal, with `poll-push.sh` as polling backup.
 
 ### claude (Anthropic Claude Code)
 No native completion event. Same fallback pattern: `cmux notify` as the
@@ -51,8 +45,7 @@ but short enough that no task is stranded indefinitely.
 | Backend | Setup | Completion / notification path | Feed path |
 |---|---|---|---|
 | Claude Code | Wrapper-managed; enabled through cmux settings | `cmux notify --title "CTB-DONE" --body "..." --surface <surface>` from the agent's final step, then observe `cmux events --category notification` / `--category agent` | Wrapper-injected `PermissionRequest` only; use `cmux feed tui` to approve from the sidebar when a request appears |
-| Codex | `cmux hooks codex install` | Same `cmux notify` completion signal; `poll-wait.sh` listens for `CTB-DONE` and agent idle events | `cmux hooks feed --source codex` is the bridge behind `cmux hooks codex install`; Codex approvals surface through the Feed / notification flow |
-| OpenCode | `cmux hooks opencode install` and optionally `--feed` or `--project` | Same `cmux notify` completion signal; `poll-wait.sh` listens for `CTB-DONE` and agent lifecycle events | `cmux hooks opencode install --feed` writes the feed plugin and exposes approvals / questions in the Feed sidebar |
+| Pi | `pi` binary on PATH | Same `cmux notify` completion signal; `poll-wait.sh` listens for `CTB-DONE` and agent idle events | `cmux hooks pi install` — Pi notifications surface through the Feed / notification flow |
 
 Practical rule:
 

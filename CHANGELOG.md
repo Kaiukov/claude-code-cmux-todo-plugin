@@ -38,6 +38,13 @@ This project adheres to semantic versioning.
   repo manifest, and a side-effect-free `--dry-run`. Coexists with the #81/#83
   symlink wiring. Documented in docs/install.md (#86).
 
+### Removed
+- Legacy OpenCode-CLI and Codex-CLI worker launch paths: the worker runtime is
+  now pi-only (`AGENT_KINDS=(pi)`). OpenCode/Codex-backed models still run through
+  pi via the `opencode-go` (and other `provider/model`) provider strings using
+  existing credentials — only the standalone `opencode`/`codex` binary launchers,
+  trust handling, and effort forwarding were removed (#98).
+
 ### Fixed
 - Damage-control Pi extension no longer imports the unavailable `yaml` module:
   rules moved to `.pi/damage-control-rules.json` and parsed with `JSON.parse`,

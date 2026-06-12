@@ -2,9 +2,9 @@
 # Send a prompt to an agent surface and submit it (Enter).
 # Use this instead of two separate `cmux send` + `send-key Enter` calls.
 #
-# Usage: agent-send.sh [--kind opencode|codex] <surface> <text...>
+# Usage: agent-send.sh [--kind pi] <surface> <text...>
 #   agent-send.sh surface:169 "run bun test and paste the output"
-#   agent-send.sh --kind opencode surface:169 "run bun test and paste the output"
+#   agent-send.sh --kind pi surface:169 "run bun test and paste the output"
 # Reads text from stdin if only the surface is given (for long prompts):
 #   agent-send.sh surface:169 < prompt.txt
 #
@@ -24,7 +24,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ $# -ge 1 ]] || die "usage: agent-send.sh [--kind opencode|codex] <surface> <text...>   (or pipe text via stdin)"
+[[ $# -ge 1 ]] || die "usage: agent-send.sh [--kind pi] <surface> <text...>   (or pipe text via stdin)"
 SURFACE="$1"; shift
 if [[ $# -gt 0 ]]; then TEXT="$*"; else TEXT="$(cat)"; fi
 [[ -n "$TEXT" ]] || die "empty prompt"

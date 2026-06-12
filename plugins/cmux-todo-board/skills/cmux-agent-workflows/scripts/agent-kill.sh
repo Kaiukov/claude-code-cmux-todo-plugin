@@ -2,12 +2,12 @@
 # Stop the agent process running in a surface, then optionally close the split.
 # Resolves the surface's tty from `cmux tree --json` and kills its foreground procs.
 #
-# Usage: agent-kill.sh <surface> [--agent opencode|codex] [--close]
+# Usage: agent-kill.sh <surface> [--agent pi] [--close]
 #   agent-kill.sh surface:169 --close
-#   agent-kill.sh surface:169 --agent codex --close
+#   agent-kill.sh surface:169 --agent pi --close
 #
 # `--agent` narrows the ps-grep pattern to the specific binary tree. If
-# omitted, the broadest pattern is used (matches opencode + codex + helpers).
+# omitted, the pi pattern is used.
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; source "$DIR/lib.sh"
 
@@ -24,10 +24,10 @@ while (( $# > 0 )); do
       [[ -z "$SURFACE" ]] || die "surface specified twice"
       SURFACE="$1"; shift ;;
     *)
-      die "unknown arg: $1  (expected: <surface> [--agent opencode|codex] [--close])" ;;
+      die "unknown arg: $1  (expected: <surface> [--agent pi] [--close])" ;;
   esac
 done
-[[ -n "$SURFACE" ]] || die "usage: agent-kill.sh <surface> [--agent opencode|codex] [--close]"
+[[ -n "$SURFACE" ]] || die "usage: agent-kill.sh <surface> [--agent pi] [--close]"
 
 if [[ -n "$AGENT_KIND" ]]; then
   agent_kind_supported "$AGENT_KIND" || die "unknown --agent: $AGENT_KIND"

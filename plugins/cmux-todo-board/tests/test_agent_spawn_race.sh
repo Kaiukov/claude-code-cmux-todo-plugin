@@ -47,18 +47,18 @@ case "$1" in
     exit 0
     ;;
   send-key) exit 0 ;;
-  read-screen) echo "OpenAI Codex gpt-5-codex medium · /path" ;;
+  read-screen) echo "(auto) pi ready · /path" ;;
   *) exit 0 ;;
 esac
 SCRIPT_EOF
 chmod +x "$MOCK_DIR/cmux"
 
-# Mock codex binary (only checked via `command -v`).
-cat > "$MOCK_DIR/codex" << 'SCRIPT_EOF'
+# Mock pi binary (only checked via `command -v`).
+cat > "$MOCK_DIR/pi" << 'SCRIPT_EOF'
 #!/usr/bin/env bash
 exit 0
 SCRIPT_EOF
-chmod +x "$MOCK_DIR/codex"
+chmod +x "$MOCK_DIR/pi"
 
 export PATH="$MOCK_DIR:$PATH"
 export CMUX_CNT_FILE="$CNT_FILE"
@@ -69,9 +69,9 @@ failures=0
 echo "=== Test 1: concurrent spawns get distinct surface refs ==="
 
 OUT1=$(mktemp) OUT2=$(mktemp)
-"$SPAWN_SCRIPT" right "$WT1" codex t1 --agent codex --quiet > "$OUT1" 2>/dev/null &
+"$SPAWN_SCRIPT" right "$WT1" opencode-go/test-model t1 --agent pi --quiet > "$OUT1" 2>/dev/null &
 PID1=$!
-"$SPAWN_SCRIPT" right "$WT2" codex t2 --agent codex --quiet > "$OUT2" 2>/dev/null &
+"$SPAWN_SCRIPT" right "$WT2" opencode-go/test-model t2 --agent pi --quiet > "$OUT2" 2>/dev/null &
 PID2=$!
 
 wait $PID1; RC1=$?

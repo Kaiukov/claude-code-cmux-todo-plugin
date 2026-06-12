@@ -2,10 +2,8 @@
 # Split the current pane, boot an agent (opencode or codex) in a worktree, wait
 # until ready, and label the tab. Echoes the NEW surface ref on success.
 #
-# Usage: agent-spawn.sh <dir> <worktree> <model> [label] [extra agent args...] [--agent opencode|codex|pi] [--profile <name>]
-#   agent-spawn.sh right /Users/x/Code/mpc-108 deepseek/deepseek-v4-pro 108
-#   agent-spawn.sh right /Users/x/Code/mpc-108 gpt-5-codex 108 --agent codex
-#   agent-spawn.sh right /Users/x/Code/mpc-108 gpt-5.4 266 -c model_reasoning_effort=high --agent codex
+# Usage: agent-spawn.sh <dir> <worktree> <model> [label] [extra agent args...] [--agent pi] [--profile <name>]
+#   agent-spawn.sh right /Users/x/Code/mpc-108 opencode-go/deepseek-v4-pro 108
 #   agent-spawn.sh right /Users/x/Code/mpc-108 --profile backend 108
 #
 # The tab name is auto-assigned: a RANDOM rock band not already in use is picked
@@ -14,10 +12,7 @@
 # Any args after [label] are forwarded verbatim to the agent launch command
 # (e.g. `-c model_reasoning_effort=high` for codex).
 #
-# Agent kinds (auto-detected from model when --agent is omitted):
-#   opencode : deepseek/deepseek-v4-pro, opencode-go/kimi-k2, ...  (provider/model)
-#   codex    : gpt-5-codex, gpt-5.4, gpt-5.4-mini, o3-mini, o4-mini, codex, ...
-# Pass --agent explicitly to override auto-detection.
+# The only agent kind is pi (default when --agent is omitted).
 #
 # Live deploy / KV writes stay orchestrator-only — agents implement + mock only.
 set -euo pipefail
@@ -61,7 +56,7 @@ if [[ -n "$PROFILE" ]]; then
   PROFILE_TOOLS="$(echo "$PROFILE_JSON" | jq -r '.tools')"
   log "profile model: $MODEL  thinking: $PROFILE_THINKING  tools: $PROFILE_TOOLS"
 else
-  (( ${#ARGS[@]} >= 3 )) || die "usage: agent-spawn.sh <dir> <worktree> <model> [label] [extra agent args...] [--agent opencode|codex|pi] [--profile <name>]"
+  (( ${#ARGS[@]} >= 3 )) || die "usage: agent-spawn.sh <dir> <worktree> <model> [label] [extra agent args...] [--agent pi] [--profile <name>]"
   SPLIT="${ARGS[0]}"; WT="${ARGS[1]}"; MODEL="${ARGS[2]}"; LABEL="${ARGS[3]:-}"
   # Any positionals after [label] are forwarded verbatim to the agent launch
   # command (e.g. `-c model_reasoning_effort=high` for codex).
@@ -117,25 +112,8 @@ log "agent kind: $AGENT_KIND  (model: $MODEL)"
 
 # Verify the agent binary is on PATH; bail with a clear error otherwise.
 case "$AGENT_KIND" in
-  opencode) command -v opencode >/dev/null || die "opencode not on PATH" ;;
-  codex)    command -v codex    >/dev/null || die "codex not on PATH" ;;
-  pi)       command -v pi       >/dev/null || die "pi not on PATH" ;;
+  pi) command -v pi >/dev/null || die "pi not on PATH" ;;
 esac
-
-# Forward registry-resolved reasoning effort to the codex launch command.
-# Only applied when (a) an effort was resolved from board-config, (b) the
-# agent is codex, and (c) the caller hasn't already passed an explicit
-# model_reasoning_effort in the extra positional args.
-if [[ -n "$RESOLVED_EFFORT" && "$AGENT_KIND" == "codex" ]]; then
-  already_has_effort=""
-  for a in "${EXTRA[@]}"; do
-    [[ "$a" == "-c" || "$a" == "model_reasoning_effort"* ]] && already_has_effort=1 && break
-  done
-  if [[ -z "$already_has_effort" ]]; then
-    EXTRA+=("-c" "model_reasoning_effort=$RESOLVED_EFFORT")
-    log "auto-added -c model_reasoning_effort=$RESOLVED_EFFORT"
-  fi
-fi
 
 BAND="$(pick_band)"
 NAME="$BAND${LABEL:+ $LABEL}"

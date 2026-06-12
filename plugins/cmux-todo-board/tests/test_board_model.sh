@@ -844,7 +844,7 @@ new_testdir
 "$BOARD_MODEL" add entry --model gpt-5.5 --provider opencode --effort low 2>&1 >/dev/null
 "$BOARD_MODEL" asign entry --tier pro 2>&1 >/dev/null
 # Simulate what agent-spawn.sh does: registry provider is opencode, but if user
-# passes --agent codex, that must win. The config provider is visible but
+# passes --agent pi, that must win. The config provider is visible but
 # overridable. Here we just verify the config provider is what we expect.
 provider="$("$BOARD_CONFIG" --get-model pro --provider 2>&1)"
 if [[ "$provider" == "opencode" ]]; then PASS; else FAIL "provider=$provider"; fi

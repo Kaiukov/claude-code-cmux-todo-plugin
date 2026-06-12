@@ -329,14 +329,13 @@ plugins/cmux-todo-board/skills/cmux-agent-workflows/scripts/agent-spawn.sh
 Its usage line is:
 
 ```bash
-agent-spawn.sh <dir> <worktree> <model> [label] [extra agent args...] [--agent opencode|codex]
+agent-spawn.sh <dir> <worktree> <model> [label] [extra agent args...] [--agent pi]
 ```
 
 Examples from the helper:
 
 ```bash
 agent-spawn.sh right "$WT" opencode-go/deepseek-v4-pro TASK
-agent-spawn.sh right "$WT" gpt-5.4 TASK -c model_reasoning_effort=high --agent codex
 ```
 
 The same workflow is what the helper automates:

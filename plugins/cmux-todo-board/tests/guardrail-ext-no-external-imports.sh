@@ -23,6 +23,9 @@ fail() { echo "  FAIL  $*"; FAILURES=$((FAILURES + 1)); }
 ALLOWED_IMPORTS=(
   # pi SDK
   "@mariozechner/pi-coding-agent"
+  "@earendil-works/pi-coding-agent"
+  "@earendil-works/pi-ai"
+  "typebox"
   # Node.js built-ins (canonical list for the Node version pi bundles)
   "fs"        "path"        "os"          "crypto"
   "http"      "https"       "http2"       "net"

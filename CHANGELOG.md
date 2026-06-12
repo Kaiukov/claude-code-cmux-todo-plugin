@@ -6,6 +6,11 @@ This project adheres to semantic versioning.
 ## [Unreleased]
 
 ### Added
+- coms-net event bus for structured Pi worker completion: Bun HTTP/SSE hub
+  (`scripts/coms-net-server.ts`) + Pi extension (`.pi/extensions/coms-net.ts`)
+  that emits a `done` event + orchestrator `coms-net-await.sh` helper, with
+  auth-token/TTL/channel-isolation and git-poll fallback. Ported from
+  disler/pi-vs-claude-code (MIT). Documented in docs/coms-net-design.md (#92).
 - Damage-control safety gate for Pi workers: data-driven `.pi/damage-control-rules.yaml`
   deny/ask list + `damage-control.ts` Pi extension (ported from disler/pi-vs-claude-code,
   MIT), loaded for pi workers at spawn. `--force-with-lease` allowed; `--force` denied (#91).

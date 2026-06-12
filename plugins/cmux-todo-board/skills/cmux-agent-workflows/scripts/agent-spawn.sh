@@ -119,8 +119,20 @@ BAND="$(pick_band)"
 NAME="$BAND${LABEL:+ $LABEL}"
 log "auto-named agent: $NAME"
 
-log "splitting $SPLIT"
-SPLIT_OUT="$(cmux new-split "$SPLIT" 2>&1)"
+# Try balanced grid layout — explicit target, never split orchestrator pane
+GRID_RESULT="$(grid_pick_split 2>/dev/null || true)"
+if [[ -n "$GRID_RESULT" ]]; then
+  TARGET="${GRID_RESULT%% *}"
+  HELPER_DIR="${GRID_RESULT##* }"
+  # Caller's SPLIT direction (always a direction: left/right/up/down) wins.
+  SPLIT_DIR="$SPLIT"
+  case "$SPLIT" in left|right|up|down) ;; *) SPLIT_DIR="$HELPER_DIR" ;; esac
+  log "splitting $SPLIT_DIR from $TARGET (grid-balanced)"
+  SPLIT_OUT="$(cmux new-split "$SPLIT_DIR" --surface "$TARGET" 2>&1)"
+else
+  log "splitting $SPLIT (legacy)"
+  SPLIT_OUT="$(cmux new-split "$SPLIT" 2>&1)"
+fi
 SURFACE="$(echo "$SPLIT_OUT" | grep -oE 'surface:[0-9]+' | head -1)"
 [[ -n "$SURFACE" ]] || die "could not determine new surface ref from output: $SPLIT_OUT"
 log "new surface: $SURFACE"

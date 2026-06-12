@@ -6,6 +6,10 @@ This project adheres to semantic versioning.
 ## [Unreleased]
 
 ### Added
+- Balanced grid layout for agent spawning: the orchestrator now selects a target
+  surface explicitly and alternates split direction to build an even grid
+  (approx 2×2 for four workers) instead of repeatedly splitting the focused pane
+  into narrow columns; the orchestrator pane is never subdivided (#97).
 - coms-net event bus for structured Pi worker completion: Bun HTTP/SSE hub
   (`scripts/coms-net-server.ts`) + Pi extension (`.pi/extensions/coms-net.ts`)
   that emits a `done` event + orchestrator `coms-net-await.sh` helper, with

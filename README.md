@@ -158,16 +158,13 @@ Degrades gracefully when stdin has no rate_limits data.
 ## Verification
 
 ```bash
-# Run the board-render tests
-bash plugins/cmux-todo-board/tests/test_board_render.sh
+# Run the full local hard gate (same entrypoint used by CI)
+bash scripts/ci-hard-gate.sh
 
-# Run the union/dedup logic tests
-bash plugins/cmux-todo-board/tests/test_board_pull_union.sh
+# Or run the full shell-test suite manually
+for f in plugins/cmux-todo-board/tests/test_*.sh; do bash "$f"; done
 
-# Run the label-swap logic tests
-bash plugins/cmux-todo-board/tests/test_board_sync.sh
-
-# Validate plugin structure (if claude CLI available)
+# Validate plugin structure when claude CLI is available
 claude plugin validate .
 ```
 

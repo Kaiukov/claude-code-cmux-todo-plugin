@@ -5,6 +5,11 @@ This project adheres to semantic versioning.
 
 ## [Unreleased]
 
+### Added
+- `pi` agent-kind: canonical Pi worker launch path (`agent-spawn.sh --agent pi`),
+  with provider/model split, trust pre-seed, and ready/kill patterns. OpenCode and
+  Codex paths kept as fallback (#90).
+
 ### Fixed
 - Completion-wait now filters the cmux event stream by worker cwd (no cross-wake
   between parallel workers) and tears down its event listener without leaking

@@ -93,6 +93,7 @@ log "agent kind: $AGENT_KIND  (model: $MODEL)"
 case "$AGENT_KIND" in
   opencode) command -v opencode >/dev/null || die "opencode not on PATH" ;;
   codex)    command -v codex    >/dev/null || die "codex not on PATH" ;;
+  pi)       command -v pi       >/dev/null || die "pi not on PATH" ;;
 esac
 
 # Forward registry-resolved reasoning effort to the codex launch command.
@@ -121,6 +122,15 @@ SURFACE="$(echo "$SPLIT_OUT" | grep -oE 'surface:[0-9]+' | head -1)"
 log "new surface: $SURFACE"
 
 cmux rename-tab --surface "$SURFACE" "$NAME" >&2 || true
+# Pre-seed Pi trust so it doesn't show a trust prompt for this worktree.
+if [[ "$AGENT_KIND" == "pi" ]]; then
+  mkdir -p ~/.pi/agent
+  [[ -f ~/.pi/agent/trust.json ]] || echo '{}' > ~/.pi/agent/trust.json
+  jq --arg wt "$WT" '. + {($wt): true}' ~/.pi/agent/trust.json > ~/.pi/agent/trust.json.tmp \
+    && mv ~/.pi/agent/trust.json.tmp ~/.pi/agent/trust.json
+  log "pre-seeded pi trust for $WT"
+fi
+
 log "booting $AGENT_KIND in $WT"
 # Send the launch command, then submit it with a discrete Enter key. `cmux send`
 # only TYPES the text into the shell — without this send-key the command sits at

@@ -61,7 +61,7 @@ pick_band() {
 # Agents share the same cmux hooks + tab-naming conventions; only the launch
 # command and the screen-readiness markers differ.
 
-AGENT_KINDS=(opencode codex)
+AGENT_KINDS=(opencode codex pi)
 
 agent_kind_supported() {
   local k="$1"
@@ -104,6 +104,13 @@ agent_launch_cmd() {
       #   effective sandbox posture (a worktree is the trust boundary).
       printf "codex --cd '%s' -m %s -a never -s danger-full-access" "$wt" "$model"
       ;;
+    pi)
+      local provider="${model%%/*}" pi_model="${model#*/}"
+      if [[ "$provider" == "$model" ]]; then
+        die "pi requires a provider/model form, e.g. opencode-go/deepseek-v4-pro"
+      fi
+      printf "cd '%s' && pi --provider %s --model %s" "$wt" "$provider" "$pi_model"
+      ;;
   esac
   if (( $# > 0 )); then printf ' %s' "$@"; fi
   printf '\n'
@@ -130,6 +137,11 @@ agent_ready_patterns() {
       # distinctive "OpenAI Codex" header.
       printf '%s' 'OpenAI Codex|codex-cli|_> OpenAI Codex'
       ;;
+    pi)
+      # The Pi prompt footer always shows (auto) or (sub) once input-ready;
+      # a fresh prompt also shows an "esc to interrupt" hint.
+      printf '%s' '\(auto\)|\(sub\)|esc.{0,3}interrupt'
+      ;;
   esac
 }
 
@@ -155,8 +167,9 @@ wait_agent_ready() {
     # Normalize: opencode TUI can render as multi-column boxes in narrow
     # panes so we delete ALL whitespace + box-drawing chars (#54).
     # Codex TUI does not have this problem — collapse whitespace only.
+    # Pi uses the same normalization as opencode (box-drawing chars in TUI).
     # Box chars: ┃┏┓┗┛━╹▀│─┌┐└┘●
-    if [[ "$kind" == "opencode" ]]; then
+    if [[ "$kind" == "opencode" || "$kind" == "pi" ]]; then
       normalized="$(printf '%s' "$screen" | tr -d '[:space:]┃┏┓┗┛━╹▀│─┌┐└┘●')"
     else
       normalized="$(printf '%s' "$screen" | tr -s ' \n' ' ')"
@@ -185,6 +198,7 @@ agent_kill_pattern() {
   case "$1" in
     opencode) printf '%s' 'opencode|node|bun' ;;
     codex)    printf '%s' 'codex|node|bun' ;;
+    pi)       printf '%s' 'pi --provider|pi --model' ;;
     *)        printf '%s' 'opencode|codex|node|bun' ;;
   esac
 }

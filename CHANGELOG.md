@@ -10,6 +10,9 @@ This project adheres to semantic versioning.
 - `pr-finish.sh` now requires explicit user confirmation before merge/close (L5).
 - cmux notify/feed cheat sheet (docs/cmux-cheat-sheet.md) (#82)
 - Install-location-independent `bin/` resolution in `.opencode/plugins/cmux-board.mjs`: priority-ordered lookup via `CMUX_BOARD_HOME` env var → walk-up search for `bin/board-status` → relative fallback (#81).
+
+### Changed
+- chore: repo hygiene pass (shell-script audit, trailing newlines, exec bits)
 - `.opencode/agent/orchestrator.md` `mode: primary` agent encoding the orchestrator role, board workflow, delegation cycle, and standby rule (#81).
 - Skills discoverability via `skills.paths` in `.opencode/opencode.json`, pointing at the existing `skills/` directory (#81).
 - `tests/test_opencode_bin_resolve.sh` — 6 tests covering CMUX_BOARD_HOME override, walk-up discovery, fallback, and real repo resolution (#81).

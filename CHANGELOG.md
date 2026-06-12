@@ -33,6 +33,10 @@ This project adheres to semantic versioning.
   any import outside pi's SDK + Node built-ins) and `guardrail-pi-runtime-smoke.sh`
   (loads every extension in pi, asserts clean startup with no "Cannot find module"
   errors). These hard-gates prevent regressions like #91 from slipping through CI (#91).
+- `board-install` deploy/update script: installs the plugin into the claude/
+  opencode/codex config dirs with `--target`, a version `--check` against the
+  repo manifest, and a side-effect-free `--dry-run`. Coexists with the #81/#83
+  symlink wiring. Documented in docs/install.md (#86).
 
 ### Fixed
 - Damage-control Pi extension no longer imports the unavailable `yaml` module:

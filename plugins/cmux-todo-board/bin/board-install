@@ -1,0 +1,440 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# board-install — deploy/update the cmux-todo-board plugin into host config dirs
+# Usage: board-install [--target <claude|opencode|codex|all>] [--dry-run] [--check] [--help]
+#
+# Targets (all by default):
+#   claude    ~/.claude/plugins/cmux-todo-board/
+#   opencode  ~/.config/opencode/
+#   codex     ${CODEX_CONFIG_HOME:-~/.codex}/
+#
+# Modes:
+#   (default)   Install/update the plugin files into target dirs.
+#   --dry-run   Print what WOULD be done; write nothing; exit 0.
+#   --check     Compare installed version vs repo version per target; no writes.
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$PLUGIN_ROOT/.." && pwd)"
+
+# --- Resolve the repo version from the authoritative manifest ---
+MANIFEST="$PLUGIN_ROOT/.claude-plugin/plugin.json"
+if [[ ! -f "$MANIFEST" ]]; then
+  echo "board-install: ERROR: plugin manifest not found at $MANIFEST" >&2
+  exit 1
+fi
+REPO_VERSION="$(jq -r '.version' "$MANIFEST")"
+if [[ -z "$REPO_VERSION" || "$REPO_VERSION" == "null" ]]; then
+  echo "board-install: ERROR: could not read version from $MANIFEST" >&2
+  exit 1
+fi
+
+# --- Target directories ---
+CLAUD_TARGET="${HOME}/.claude/plugins/cmux-todo-board"
+OPENCODE_TARGET="${HOME}/.config/opencode"
+CODEX_CONFIG_HOME="${CODEX_CONFIG_HOME:-${HOME}/.codex}"
+CODEX_TARGET="${CODEX_CONFIG_HOME}"
+
+# --- Globals ---
+DRY_RUN=0
+CHECK_ONLY=0
+TARGET="all"
+WRITTEN_ANY=0
+
+# --- Help ---
+usage() {
+  cat <<EOF
+Usage: board-install [--target <claude|opencode|codex|all>] [--dry-run] [--check]
+       board-install --help
+
+Deploy / update the cmux-todo-board plugin into host config directories.
+
+Targets (default: all):
+  claude    ${CLAUD_TARGET}
+  opencode  ${OPENCODE_TARGET}
+  codex     ${CODEX_TARGET}  (override with CODEX_CONFIG_HOME)
+
+Modes:
+  (default) Install or update plugin files. Creates target dirs as needed.
+  --dry-run Print what WOULD be copied/linked; write nothing; exit 0.
+  --check   Compare installed version against repo version (${REPO_VERSION}).
+            Reports up-to-date / outdated / not-installed per target; no writes.
+  --help    Show this message and exit.
+
+Examples:
+  board-install                         # install/update into all targets
+  board-install --target claude         # install/update for Claude only
+  board-install --dry-run               # preview without writing
+  board-install --check                 # version check across all targets
+  board-install --target opencode --check
+EOF
+  exit 0
+}
+
+# --- Logging helpers ---
+say()  { echo "board-install: $*"; }
+warn() { echo "board-install: WARNING: $*" >&2; }
+err()  { echo "board-install: ERROR: $*" >&2; }
+
+# --- Utility: test if a path is a symlink ---
+is_symlink() { [[ -L "$1" ]]; }
+
+# --- Utility: test if a path exists (any type, following symlinks) ---
+path_exists() { [[ -e "$1" ]]; }
+
+# --- Install a single file into a target directory ---
+# Usage: install_file <src> <dst_dir>
+# Respects DRY_RUN; reports symlink collisions.
+install_file() {
+  local src="$1"
+  local dst_dir="$2"
+  local fname
+  fname="$(basename "$src")"
+  local dst="$dst_dir/$fname"
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    say "[dry-run] would copy $src -> $dst"
+    return 0
+  fi
+
+  if is_symlink "$dst"; then
+    local link_target
+    link_target="$(readlink "$dst")"
+    warn "$dst is a symlink → $link_target — skipping (coexist with #81/#83 wiring)"
+    return 0
+  fi
+
+  mkdir -p "$(dirname "$dst")"
+  if [[ -f "$src" ]]; then
+    cp -f "$src" "$dst"
+  elif [[ -d "$src" ]]; then
+    mkdir -p "$dst"
+    # Copy directory contents recursively, preserving structure
+    cp -R "$src"/* "$dst"/ 2>/dev/null || true
+  fi
+  WRITTEN_ANY=1
+  return 0
+}
+
+# --- Install a directory recursively ---
+# Usage: install_dir <src_dir> <dst_dir>
+# Copies all contents of src_dir into dst_dir (creates dst_dir if needed).
+install_dir() {
+  local src_dir="$1"
+  local dst_dir="$2"
+
+  if [[ ! -d "$src_dir" ]]; then
+    return 0
+  fi
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    say "[dry-run] would copy $src_dir/ -> $dst_dir/"
+    return 0
+  fi
+
+  if is_symlink "$dst_dir"; then
+    local link_target
+    link_target="$(readlink "$dst_dir")"
+    warn "$dst_dir is a symlink → $link_target — skipping (coexist with #81/#83 wiring)"
+    return 0
+  fi
+
+  mkdir -p "$dst_dir"
+  # Use cp -R to copy recursively. We use a temp approach to avoid issues.
+  ( cd "$src_dir" && cp -R . "$dst_dir"/ )
+  WRITTEN_ANY=1
+  return 0
+}
+
+# --- Version check for a single target ---
+# Usage: check_version <target_name> <plugin_json_path_if_installed>
+check_version() {
+  local name="$1"
+  local installed_manifest="$2"
+
+  if [[ ! -f "$installed_manifest" ]]; then
+    echo "  ${name}: not-installed"
+    return 0
+  fi
+
+  local installed_version
+  installed_version="$(jq -r '.version // empty' "$installed_manifest" 2>/dev/null)"
+  if [[ -z "$installed_version" || "$installed_version" == "null" ]]; then
+    echo "  ${name}: unknown-version (manifest present but no version field)"
+    return 0
+  fi
+
+  if [[ "$installed_version" == "$REPO_VERSION" ]]; then
+    echo "  ${name}: up-to-date (${installed_version})"
+  else
+    echo "  ${name}: outdated (installed=${installed_version}, repo=${REPO_VERSION})"
+  fi
+  return 0
+}
+
+# --- Per-target install functions ---
+
+install_claude() {
+  local target="$CLAUD_TARGET"
+  say "Target: claude → ${target}"
+
+  if [[ "$CHECK_ONLY" -eq 1 ]]; then
+    check_version "claude" "$target/.claude-plugin/plugin.json"
+    return 0
+  fi
+
+  # Check for existing symlink wiring at the target level
+  if is_symlink "$target"; then
+    local link_target
+    link_target="$(readlink "$target")"
+    warn "$target is a symlink → $link_target — skipping (coexist with #81/#83 wiring)"
+    return 0
+  fi
+
+  # Install the full plugin directory
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    say "[dry-run] would install plugin from $PLUGIN_ROOT to $target"
+    # Also list the sub-directories that would be copied
+    for item in "$PLUGIN_ROOT"/*; do
+      [[ "$item" == "$PLUGIN_ROOT/tests" ]] && continue
+      say "[dry-run]   $(basename "$item")/"
+    done
+    return 0
+  fi
+
+  mkdir -p "$target"
+  # Copy all plugin files except tests
+  for item in "$PLUGIN_ROOT"/*; do
+    local bname
+    bname="$(basename "$item")"
+    [[ "$bname" == "tests" ]] && continue
+
+    if [[ -d "$item" ]]; then
+      local dst_sub="$target/$bname"
+      if is_symlink "$dst_sub"; then
+        local link_target
+        link_target="$(readlink "$dst_sub")"
+        warn "$dst_sub is a symlink → $link_target — skipping (coexist with #81/#83 wiring)"
+        continue
+      fi
+      mkdir -p "$dst_sub"
+      ( cd "$item" && cp -R . "$dst_sub"/ )
+    else
+      local dst_file="$target/$bname"
+      if is_symlink "$dst_file"; then
+        local link_target
+        link_target="$(readlink "$dst_file")"
+        warn "$dst_file is a symlink → $link_target — skipping (coexist with #81/#83 wiring)"
+        continue
+      fi
+      cp -f "$item" "$dst_file"
+    fi
+  done
+  say "claude: installed version ${REPO_VERSION}"
+  WRITTEN_ANY=1
+  return 0
+}
+
+install_opencode() {
+  local target="$OPENCODE_TARGET"
+  say "Target: opencode → ${target}"
+
+  if [[ "$CHECK_ONLY" -eq 1 ]]; then
+    # For opencode, look for plugin.json in the opencode dir or in a subdir
+    local manifest_candidate="$target/plugin.json"
+    if [[ ! -f "$manifest_candidate" ]]; then
+      manifest_candidate="$PLUGIN_ROOT/.codex-plugin/plugin.json"
+      # Fall back to checking if opencode files exist at all
+      if [[ -f "$target/opencode.json" ]]; then
+        echo "  opencode: installed (version info not available in opencode target)"
+      else
+        echo "  opencode: not-installed"
+      fi
+      return 0
+    fi
+    check_version "opencode" "$manifest_candidate"
+    return 0
+  fi
+
+  # Install opencode config & plugin files from .opencode/
+  local src_opencode="$PLUGIN_ROOT/.opencode"
+  if [[ ! -d "$src_opencode" ]]; then
+    warn "opencode source dir not found at $src_opencode — skipping"
+    return 0
+  fi
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    say "[dry-run] would install .opencode/ contents to $target/"
+    for item in "$src_opencode"/* "$src_opencode"/.[!.]* "$src_opencode"/..?*; do
+      [[ ! -e "$item" ]] && continue
+      say "[dry-run]   $(basename "$item")"
+    done
+    say "[dry-run]   (plus bin/ and skills/ for plugin resolution)"
+    return 0
+  fi
+
+  # Check for symlink wiring at the target level
+  if is_symlink "$target"; then
+    warn "$target is a symlink — skipping (coexist with #81/#83 wiring)"
+    return 0
+  fi
+
+  mkdir -p "$target"
+
+  # Install .opencode/ contents (opencode.json, package.json, agent/, plugins/)
+  for item in "$src_opencode"/*; do
+    local bname
+    bname="$(basename "$item")"
+    local dst="$target/$bname"
+    if is_symlink "$dst"; then
+      warn "$dst is a symlink — skipping (coexist with #81/#83 wiring)"
+      continue
+    fi
+    if [[ -d "$item" ]]; then
+      mkdir -p "$dst"
+      ( cd "$item" && cp -R . "$dst"/ )
+    else
+      cp -f "$item" "$dst"
+    fi
+  done
+
+  # Also install bin/ and skills/ for the plugin to resolve its scripts
+  for sub in bin skills; do
+    local src_sub="$PLUGIN_ROOT/$sub"
+    local dst_sub="$target/$sub"
+    if [[ -d "$src_sub" ]]; then
+      if is_symlink "$dst_sub"; then
+        warn "$dst_sub is a symlink — skipping (coexist with #81/#83 wiring)"
+        continue
+      fi
+      mkdir -p "$dst_sub"
+      ( cd "$src_sub" && cp -R . "$dst_sub"/ )
+    fi
+  done
+
+  say "opencode: installed version ${REPO_VERSION}"
+  WRITTEN_ANY=1
+  return 0
+}
+
+install_codex() {
+  local target="$CODEX_TARGET"
+  say "Target: codex → ${target}"
+
+  if [[ "$CHECK_ONLY" -eq 1 ]]; then
+    check_version "codex" "$target/plugin.json"
+    return 0
+  fi
+
+  local src_codex="$PLUGIN_ROOT/.codex-plugin"
+  if [[ ! -d "$src_codex" ]]; then
+    warn "codex source dir not found at $src_codex — skipping"
+    return 0
+  fi
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    say "[dry-run] would install .codex-plugin/ contents to $target/"
+    for item in "$src_codex"/*; do
+      [[ ! -e "$item" ]] && continue
+      say "[dry-run]   $(basename "$item")"
+    done
+    return 0
+  fi
+
+  if is_symlink "$target"; then
+    warn "$target is a symlink — skipping (coexist with #81/#83 wiring)"
+    return 0
+  fi
+
+  mkdir -p "$target"
+
+  for item in "$src_codex"/*; do
+    local bname
+    bname="$(basename "$item")"
+    local dst="$target/$bname"
+    if is_symlink "$dst"; then
+      warn "$dst is a symlink — skipping (coexist with #81/#83 wiring)"
+      continue
+    fi
+    if [[ -d "$item" ]]; then
+      mkdir -p "$dst"
+      ( cd "$item" && cp -R . "$dst"/ )
+    else
+      cp -f "$item" "$dst"
+    fi
+  done
+
+  say "codex: installed version ${REPO_VERSION}"
+  WRITTEN_ANY=1
+  return 0
+}
+
+# --- Arg parsing ---
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --target)
+      if [[ -z "${2:-}" ]]; then
+        err "--target requires a value (claude|opencode|codex|all)"
+        exit 1
+      fi
+      case "$2" in
+        claude|opencode|codex|all) TARGET="$2" ;;
+        *)
+          err "unknown --target '$2'. Valid: claude, opencode, codex, all"
+          exit 1
+          ;;
+      esac
+      shift 2
+      ;;
+    --dry-run)
+      DRY_RUN=1
+      shift
+      ;;
+    --check)
+      CHECK_ONLY=1
+      shift
+      ;;
+    --help|-h)
+      usage
+      ;;
+    *)
+      err "unknown flag '$1'. Use --help."
+      exit 1
+      ;;
+  esac
+done
+
+# --- Safety: --dry-run and --check conflict? No, they can coexist. ---
+# --check with --dry-run just runs check without writes (same as --check alone).
+
+# --- Main dispatch ---
+if [[ "$CHECK_ONLY" -eq 1 ]]; then
+  echo "board-install: version check (repo version: ${REPO_VERSION})"
+fi
+
+case "$TARGET" in
+  all)
+    install_claude
+    install_opencode
+    install_codex
+    ;;
+  claude)
+    install_claude
+    ;;
+  opencode)
+    install_opencode
+    ;;
+  codex)
+    install_codex
+    ;;
+esac
+
+if [[ "$CHECK_ONLY" -eq 0 && "$DRY_RUN" -eq 0 ]]; then
+  if [[ "$WRITTEN_ANY" -eq 1 ]]; then
+    say "done."
+  else
+    say "nothing to do (all targets already up-to-date or symlinked)."
+  fi
+fi
+exit 0

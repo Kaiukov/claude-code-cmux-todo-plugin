@@ -166,6 +166,18 @@ if [[ "$AGENT_KIND" == "pi" ]]; then
 fi
 # --- end #91 ---
 
+# --- #118 prompt layering ---
+# Load canonical Pi worker prompt assets (common-system + per-role guidance).
+# Appended via --append-system-prompt so the orchestrator never loads them.
+if [[ "$AGENT_KIND" == "pi" ]]; then
+  PROMPTS_DIR="$DIR/../../../prompts/pi"
+  ROLE="${PROFILE:-backend}"
+  EXTRA+=("--append-system-prompt" "$PROMPTS_DIR/common-system.md"
+          "--append-system-prompt" "$PROMPTS_DIR/roles/$ROLE.md")
+  log "loaded pi prompt assets: common-system + roles/$ROLE"
+fi
+# --- end #118 ---
+
 log "booting $AGENT_KIND in $WT"
 # Send the launch command, then submit it with a discrete Enter key. `cmux send`
 # only TYPES the text into the shell — without this send-key the command sits at

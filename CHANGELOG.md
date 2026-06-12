@@ -9,6 +9,10 @@ This project adheres to semantic versioning.
 - Damage-control safety gate for Pi workers: data-driven `.pi/damage-control-rules.yaml`
   deny/ask list + `damage-control.ts` Pi extension (ported from disler/pi-vs-claude-code,
   MIT), loaded for pi workers at spawn. `--force-with-lease` allowed; `--force` denied (#91).
+- Canonical Pi worker prompt layering: universal `prompts/pi/common-system.md`
+  base + tiny per-role assets + shared `init.md`, loaded via
+  `--append-system-prompt` for pi workers, with all task specifics kept in
+  `.task-spec.md`. Absorbs #108. Documented in docs/pi-prompt-layering.md (#118).
 - Pi role profiles (backend/frontend/frontend-top/review/docs): `board-config
   --get-profile <name>` resolves a profile to `{provider, model, thinking, tools}`
   and `agent-spawn.sh --profile <name>` launches a Pi worker from it. Profiles are

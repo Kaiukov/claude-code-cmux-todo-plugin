@@ -15,7 +15,7 @@ Default working language: EN. Board generates issues/docs in EN unless overridde
   - **Tactical** (functions, tests, refactor) → delegate.
   - **Mechanical** (formatting, rename, boilerplate, config/JSON) → delegate.
   **If it can be delegated, delegate it.** Token-budget accounting: future work.
-- **Model tiers:** see `docs/delegation-policy.md`.
+- **Model profiles:** see `docs/delegation-policy.md`.
 - **Hard gate (never merge on agent self-report):** run tests + `claude plugin validate .` / typecheck before merging. Mocks pass while live breaks — always real check.
 - **Never hand-edit CHANGELOG.md.** Delegating agent's responsibility via `## CHANGELOG` in task spec.
 - **Live deploys / DB / KV mutations = orchestrator-only.** Agents unit-test on mocks; real deploy/migration/`--remote` write done by you with explicit user confirmation each time.

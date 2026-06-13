@@ -5,6 +5,13 @@ This project adheres to semantic versioning.
 
 ## [Unreleased]
 
+### Changed
+- board-config default model map is now free-first: `flash`/`simple` tiers and the
+  `backend-fast`/`repo-scout`/`docs` profiles use free `opencode/*-free` models;
+  `review` uses `deepseek-v4-pro`; the banned `gpt-5.5` is removed from defaults;
+  new `backend-fast`/`repo-scout`/`test`/`tiny-patch` profiles added; frontend
+  Claude profiles marked permission-gated (#131).
+
 ## [0.7.0] - 2026-06-13
 
 ### Added

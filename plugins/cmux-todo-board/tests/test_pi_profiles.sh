@@ -84,9 +84,9 @@ check_profile() {
 }
 check_profile backend opencode-go high "read,bash,edit,write,grep,find,ls" || all_ok=false
 check_profile frontend anthropic medium "read,bash,edit,write,grep,find,ls" TBC || all_ok=false
-check_profile frontend-top anthropic medium "read,bash,edit,write,grep,find,ls" TBC || all_ok=false
-check_profile review openai-codex high "read,bash,grep,find,ls" || all_ok=false
-check_profile docs opencode-go low "read,bash,edit,write,grep,find,ls" || all_ok=false
+check_profile frontend-top anthropic high "read,bash,edit,write,grep,find,ls" TBC || all_ok=false
+check_profile review opencode-go high "read,bash,grep,find,ls" || all_ok=false
+check_profile docs opencode low "read,bash,edit,write,grep,find,ls" || all_ok=false
 if $all_ok; then
   echo "PASS"
 else

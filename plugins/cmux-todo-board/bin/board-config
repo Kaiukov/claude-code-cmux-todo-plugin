@@ -2,12 +2,12 @@
 set -euo pipefail
 
 DEFAULT_LANG="EN"
-DEFAULT_MODELS_JSON='{"flash":"opencode/deepseek-v4-flash-free","pro":"opencode-go/deepseek-v4-pro","review":"gpt-5.4","simple":"gpt-5.4-mini","top":"gpt-5.5"}'
+DEFAULT_MODELS_JSON='{"flash":"opencode/deepseek-v4-flash-free","pro":"opencode-go/deepseek-v4-pro","review":"opencode-go/deepseek-v4-pro","simple":"opencode/deepseek-v4-flash-free","top":"gpt-5.4"}'
 VALID_TIERS=(flash pro review simple top)
 # TBC: frontend (claude-sonnet-4-6) and frontend-top (claude-opus-4-8) model IDs
 # not yet user-confirmed against `pi --list-models`. Verify before production use.
-DEFAULT_PROFILES_JSON='{"backend":{"provider":"opencode-go","model":"deepseek-v4-pro","thinking":"high","tools":"read,bash,edit,write,grep,find,ls"},"frontend":{"provider":"anthropic","model":"claude-sonnet-4-6","model_status":"TBC","thinking":"medium","tools":"read,bash,edit,write,grep,find,ls"},"frontend-top":{"provider":"anthropic","model":"claude-opus-4-8","model_status":"TBC","thinking":"medium","tools":"read,bash,edit,write,grep,find,ls"},"review":{"provider":"openai-codex","model":"gpt-5.4","thinking":"high","tools":"read,bash,grep,find,ls"},"docs":{"provider":"opencode-go","model":"deepseek-v4-flash","thinking":"low","tools":"read,bash,edit,write,grep,find,ls"}}'
-VALID_PROFILES=(backend frontend frontend-top review docs)
+DEFAULT_PROFILES_JSON='{"backend":{"provider":"opencode-go","model":"deepseek-v4-pro","thinking":"high","tools":"read,bash,edit,write,grep,find,ls"},"backend-fast":{"provider":"opencode","model":"deepseek-v4-flash-free","thinking":"low","tools":"read,bash,edit,write,grep,find,ls"},"repo-scout":{"provider":"opencode","model":"nemotron-3-ultra-free","thinking":"medium","tools":"read,bash,grep,find,ls"},"docs":{"provider":"opencode","model":"mimo-v2.5-free","thinking":"low","tools":"read,bash,edit,write,grep,find,ls"},"test":{"provider":"openai-codex","model":"gpt-5.4-mini","thinking":"medium","tools":"read,bash,edit,write,grep,find,ls"},"tiny-patch":{"provider":"openai-codex","model":"gpt-5.4-mini","thinking":"low","tools":"read,bash,edit,write,grep,find,ls"},"review":{"provider":"opencode-go","model":"deepseek-v4-pro","thinking":"high","tools":"read,bash,grep,find,ls"},"frontend":{"provider":"anthropic","model":"claude-sonnet-4-6","model_status":"TBC","gate":"user-permission","thinking":"medium","tools":"read,bash,edit,write,grep,find,ls"},"frontend-top":{"provider":"anthropic","model":"claude-opus-4-8","model_status":"TBC","gate":"user-permission","thinking":"high","tools":"read,bash,edit,write,grep,find,ls"}}'
+VALID_PROFILES=(backend backend-fast repo-scout docs test tiny-patch review frontend frontend-top)
 CONFIG_FILE=".tasks/config.json"
 
 usage() {
@@ -33,8 +33,9 @@ Commands:
     --provider          Also print the provider (opencode|codex).
     --effort            Also print the reasoning effort (low|medium|high) if set.
     --json              Print full resolution as JSON: {model, provider, effort}.
-  --get-profile <name>  Resolve a Pi role profile (backend|frontend|frontend-top|
-                        review|docs). Reads overrides from .profiles.<name> in
+  --get-profile <name>  Resolve a Pi role profile (backend|backend-fast|
+                        repo-scout|docs|test|tiny-patch|review|frontend|
+                        frontend-top). Reads overrides from .profiles.<name> in
                         ${CONFIG_FILE}, falls back to built-in defaults.
     --provider          Print the provider field only.
     --model             Print the model field only (default if no selector).

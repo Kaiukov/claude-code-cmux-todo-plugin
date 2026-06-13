@@ -132,7 +132,11 @@ fi
 # Appended via --append-system-prompt so the orchestrator never loads them.
 if [[ "$AGENT_KIND" == "pi" ]]; then
   PROMPTS_DIR="$DIR/../../../prompts/pi"
-  ROLE="${PROFILE:-backend}"
+  if [[ -n "$PROFILE" ]]; then
+    ROLE="$(echo "$PROFILE_JSON" | jq -r '.role // "backend"')"
+  else
+    ROLE="backend"
+  fi
   EXTRA+=("--append-system-prompt" "$PROMPTS_DIR/common-system.md"
           "--append-system-prompt" "$PROMPTS_DIR/roles/$ROLE.md")
   log "loaded pi prompt assets: common-system + roles/$ROLE"

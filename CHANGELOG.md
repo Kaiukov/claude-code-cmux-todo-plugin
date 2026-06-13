@@ -5,6 +5,9 @@ This project adheres to semantic versioning.
 
 ## [Unreleased]
 
+### Changed
+- Profiles now carry an explicit `role` field selecting the prompt asset, decoupling profile name from `roles/*.md` filename (#138).
+
 ### Removed
 - Delegation **tiers** (`.models`) and the **model-registry** (`board-model add/edit/delete/asign`, `board-config --get-model`). Profiles (`board-model select --role`, `board-config --get-profile`) are now the single model-config source (#138).
 - Dead `prompts/pi/init.md` prompt asset (never loaded by the spawn path) (#138 follow-up).

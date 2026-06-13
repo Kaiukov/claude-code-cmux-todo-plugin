@@ -125,8 +125,6 @@ The `agent-spawn.sh` launch helper (inside the plugin's scripts directory).
 It resolves absolute paths using `$DIR/../../../prompts/pi/`, so they work
 regardless of the current working directory.
 
-
-
 ### When would `--no-context-files` be used?
 For debugging or when a worker needs a completely blank system prompt (e.g.,
 testing prompt isolation). The flag suppresses all `--append-system-prompt`

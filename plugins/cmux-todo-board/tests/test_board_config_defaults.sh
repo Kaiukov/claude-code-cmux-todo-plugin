@@ -126,6 +126,115 @@ else
   failures=$((failures + 1))
 fi
 
+# ── Profile role field ──
+
+echo "=== R1: --get-profile backend --role → backend ==="
+role="$("$BOARD_CONFIG" --get-profile backend --role 2>&1)"
+if [[ "$role" == "backend" ]]; then
+  echo "PASS"
+else
+  echo "FAIL: got '$role'"
+  failures=$((failures + 1))
+fi
+
+echo "=== R2: --get-profile repo-scout --role → review ==="
+role="$("$BOARD_CONFIG" --get-profile repo-scout --role 2>&1)"
+if [[ "$role" == "review" ]]; then
+  echo "PASS"
+else
+  echo "FAIL: got '$role'"
+  failures=$((failures + 1))
+fi
+
+echo "=== R3: --get-profile backend-fast --role → backend ==="
+role="$("$BOARD_CONFIG" --get-profile backend-fast --role 2>&1)"
+if [[ "$role" == "backend" ]]; then
+  echo "PASS"
+else
+  echo "FAIL: got '$role'"
+  failures=$((failures + 1))
+fi
+
+echo "=== R4: --get-profile test --role → backend ==="
+role="$("$BOARD_CONFIG" --get-profile test --role 2>&1)"
+if [[ "$role" == "backend" ]]; then
+  echo "PASS"
+else
+  echo "FAIL: got '$role'"
+  failures=$((failures + 1))
+fi
+
+echo "=== R5: --get-profile tiny-patch --role → backend ==="
+role="$("$BOARD_CONFIG" --get-profile tiny-patch --role 2>&1)"
+if [[ "$role" == "backend" ]]; then
+  echo "PASS"
+else
+  echo "FAIL: got '$role'"
+  failures=$((failures + 1))
+fi
+
+echo "=== R6: --get-profile review --role → review ==="
+role="$("$BOARD_CONFIG" --get-profile review --role 2>&1)"
+if [[ "$role" == "review" ]]; then
+  echo "PASS"
+else
+  echo "FAIL: got '$role'"
+  failures=$((failures + 1))
+fi
+
+echo "=== R7: --get-profile docs --role → docs ==="
+role="$("$BOARD_CONFIG" --get-profile docs --role 2>&1)"
+if [[ "$role" == "docs" ]]; then
+  echo "PASS"
+else
+  echo "FAIL: got '$role'"
+  failures=$((failures + 1))
+fi
+
+echo "=== R8: --get-profile frontend --role → frontend ==="
+role="$("$BOARD_CONFIG" --get-profile frontend --role 2>&1)"
+if [[ "$role" == "frontend" ]]; then
+  echo "PASS"
+else
+  echo "FAIL: got '$role'"
+  failures=$((failures + 1))
+fi
+
+echo "=== R9: --get-profile frontend-top --role → frontend-top ==="
+role="$("$BOARD_CONFIG" --get-profile frontend-top --role 2>&1)"
+if [[ "$role" == "frontend-top" ]]; then
+  echo "PASS"
+else
+  echo "FAIL: got '$role'"
+  failures=$((failures + 1))
+fi
+
+echo "=== R10: --get-profile backend --json includes role field ==="
+json="$("$BOARD_CONFIG" --get-profile backend --json 2>&1)"
+role_field="$(echo "$json" | jq -r '.role')"
+if [[ "$role_field" == "backend" ]]; then
+  echo "PASS"
+else
+  echo "FAIL: role field missing or wrong in json"
+  failures=$((failures + 1))
+fi
+
+echo "=== R11: every built-in profile's role names an existing asset ==="
+PROMPTS_DIR="$REPO_ROOT/prompts/pi/roles"
+all_roles_exist=true
+for profile in backend backend-fast repo-scout docs test tiny-patch review frontend frontend-top; do
+  role="$("$BOARD_CONFIG" --get-profile "$profile" --role 2>&1)"
+  if [[ ! -f "$PROMPTS_DIR/$role.md" ]]; then
+    echo "  FAIL: profile '$profile' → role '$role' but $PROMPTS_DIR/$role.md does not exist"
+    all_roles_exist=false
+  fi
+done
+if $all_roles_exist; then
+  echo "PASS"
+else
+  failures=$((failures + 1))
+fi
+
 # ── Absence of gpt-5.5 ──
 
 echo "=== G1: no gpt-5.5 anywhere in board-config source ==="

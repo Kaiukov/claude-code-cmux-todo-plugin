@@ -2,7 +2,7 @@
 set -euo pipefail
 
 DEFAULT_LANG="EN"
-DEFAULT_PROFILES_JSON='{"backend":{"provider":"opencode-go","model":"deepseek-v4-pro","thinking":"high","tools":"read,bash,edit,write,grep,find,ls"},"backend-fast":{"provider":"opencode","model":"deepseek-v4-flash-free","thinking":"low","tools":"read,bash,edit,write,grep,find,ls"},"repo-scout":{"provider":"opencode","model":"nemotron-3-ultra-free","thinking":"medium","tools":"read,bash,grep,find,ls"},"docs":{"provider":"opencode","model":"mimo-v2.5-free","thinking":"low","tools":"read,bash,edit,write,grep,find,ls"},"test":{"provider":"openai-codex","model":"gpt-5.4-mini","thinking":"medium","tools":"read,bash,edit,write,grep,find,ls"},"tiny-patch":{"provider":"openai-codex","model":"gpt-5.4-mini","thinking":"low","tools":"read,bash,edit,write,grep,find,ls"},"review":{"provider":"opencode-go","model":"deepseek-v4-pro","thinking":"high","tools":"read,bash,grep,find,ls"},"frontend":{"provider":"anthropic","model":"claude-sonnet-4-6","model_status":"TBC","gate":"user-permission","thinking":"medium","tools":"read,bash,edit,write,grep,find,ls"},"frontend-top":{"provider":"anthropic","model":"claude-opus-4-8","model_status":"TBC","gate":"user-permission","thinking":"high","tools":"read,bash,edit,write,grep,find,ls"}}'
+DEFAULT_PROFILES_JSON='{"backend":{"role":"backend","provider":"opencode-go","model":"deepseek-v4-pro","thinking":"high","tools":"read,bash,edit,write,grep,find,ls"},"backend-fast":{"role":"backend","provider":"opencode","model":"deepseek-v4-flash-free","thinking":"low","tools":"read,bash,edit,write,grep,find,ls"},"repo-scout":{"role":"review","provider":"opencode","model":"nemotron-3-ultra-free","thinking":"medium","tools":"read,bash,grep,find,ls"},"docs":{"role":"docs","provider":"opencode","model":"mimo-v2.5-free","thinking":"low","tools":"read,bash,edit,write,grep,find,ls"},"test":{"role":"backend","provider":"openai-codex","model":"gpt-5.4-mini","thinking":"medium","tools":"read,bash,edit,write,grep,find,ls"},"tiny-patch":{"role":"backend","provider":"openai-codex","model":"gpt-5.4-mini","thinking":"low","tools":"read,bash,edit,write,grep,find,ls"},"review":{"role":"review","provider":"opencode-go","model":"deepseek-v4-pro","thinking":"high","tools":"read,bash,grep,find,ls"},"frontend":{"role":"frontend","provider":"anthropic","model":"claude-sonnet-4-6","model_status":"TBC","gate":"user-permission","thinking":"medium","tools":"read,bash,edit,write,grep,find,ls"},"frontend-top":{"role":"frontend-top","provider":"anthropic","model":"claude-opus-4-8","model_status":"TBC","gate":"user-permission","thinking":"high","tools":"read,bash,edit,write,grep,find,ls"}}'
 VALID_PROFILES=(backend backend-fast repo-scout docs test tiny-patch review frontend frontend-top)
 CONFIG_FILE=".tasks/config.json"
 
@@ -10,7 +10,7 @@ usage() {
   cat <<EOF
 Usage: board-config --get
        board-config --set-language <code>
-       board-config --get-profile <name> [--provider] [--model] [--thinking] [--tools] [--json]
+       board-config --get-profile <name> [--provider] [--model] [--thinking] [--tools] [--role] [--json]
        board-config --help|-h
 
 Manage board runtime configuration stored in ${CONFIG_FILE}.
@@ -29,8 +29,9 @@ Commands:
     --model             Print the model field only (default if no selector).
     --thinking          Print the thinking field only.
     --tools             Print the tools field only.
+    --role              Print the role field only.
     --json              Print full resolution as JSON:
-                        {provider, model, thinking, tools}.
+                        {provider, model, thinking, tools, role}.
   --help, -h            Show this help message.
 EOF
   exit 0
@@ -93,34 +94,40 @@ resolve_profile_full() {
   fi
 
   # Start with the built-in default
-  local provider model thinking tools model_status
+  local provider model thinking tools model_status role
   provider="$(echo "$DEFAULT_PROFILES_JSON" | jq -r --arg n "$name" '.[$n].provider')"
   model="$(echo "$DEFAULT_PROFILES_JSON" | jq -r --arg n "$name" '.[$n].model')"
   thinking="$(echo "$DEFAULT_PROFILES_JSON" | jq -r --arg n "$name" '.[$n].thinking')"
   tools="$(echo "$DEFAULT_PROFILES_JSON" | jq -r --arg n "$name" '.[$n].tools')"
   model_status="$(echo "$DEFAULT_PROFILES_JSON" | jq -r --arg n "$name" '.[$n].model_status // empty')"
+  role="$(echo "$DEFAULT_PROFILES_JSON" | jq -r --arg n "$name" '.[$n].role // empty')"
 
   # Override from config if present (deep-merge per field)
   if [[ -n "$config_json" ]]; then
     local override
     override="$(echo "$config_json" | jq -r --arg n "$name" '.profiles[$n] // empty' 2>/dev/null)"
     if [[ -n "$override" ]]; then
-      local ov_provider ov_model ov_thinking ov_tools ov_model_status
+      local ov_provider ov_model ov_thinking ov_tools ov_model_status ov_role
       ov_provider="$(echo "$override" | jq -r '.provider // empty')"
       ov_model="$(echo "$override" | jq -r '.model // empty')"
       ov_thinking="$(echo "$override" | jq -r '.thinking // empty')"
       ov_tools="$(echo "$override" | jq -r '.tools // empty')"
       ov_model_status="$(echo "$override" | jq -r '.model_status // empty')"
+      ov_role="$(echo "$override" | jq -r '.role // empty')"
       [[ -n "$ov_provider" ]] && provider="$ov_provider"
       [[ -n "$ov_model" ]] && model="$ov_model"
       [[ -n "$ov_thinking" ]] && thinking="$ov_thinking"
       [[ -n "$ov_tools" ]] && tools="$ov_tools"
       [[ -n "$ov_model_status" ]] && model_status="$ov_model_status"
+      [[ -n "$ov_role" ]] && role="$ov_role"
     fi
   fi
 
-  jq -n --arg provider "$provider" --arg model "$model" --arg thinking "$thinking" --arg tools "$tools" --arg model_status "$model_status" \
-    '{provider: $provider, model: $model, thinking: $thinking, tools: $tools} + (if $model_status != "" then {model_status: $model_status} else {} end)'
+  # Default role to profile name for backward compatibility
+  [[ -z "$role" ]] && role="$name"
+
+  jq -n --arg provider "$provider" --arg model "$model" --arg thinking "$thinking" --arg tools "$tools" --arg model_status "$model_status" --arg role "$role" \
+    '{provider: $provider, model: $model, thinking: $thinking, tools: $tools, role: $role} + (if $model_status != "" then {model_status: $model_status} else {} end)'
 }
 
 # resolve_profile <name> <json> — print model id for profile. Backward-compatible wrapper.
@@ -181,6 +188,7 @@ if [[ $# -ge 2 && "$1" == "--get-profile" ]]; then
   show_model=""
   show_thinking=""
   show_tools=""
+  show_role=""
   show_json=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -188,6 +196,7 @@ if [[ $# -ge 2 && "$1" == "--get-profile" ]]; then
       --model)    show_model=1 ;;
       --thinking) show_thinking=1 ;;
       --tools)    show_tools=1 ;;
+      --role)     show_role=1 ;;
       --json)     show_json=1 ;;
       *) echo "board-config: unknown flag '$1' for --get-profile" >&2; exit 1 ;;
     esac
@@ -208,6 +217,8 @@ if [[ $# -ge 2 && "$1" == "--get-profile" ]]; then
     echo "$result" | jq -r '.thinking'
   elif [[ -n "$show_tools" ]]; then
     echo "$result" | jq -r '.tools'
+  elif [[ -n "$show_role" ]]; then
+    echo "$result" | jq -r '.role'
   else
     echo "$result" | jq -r '.model'
   fi

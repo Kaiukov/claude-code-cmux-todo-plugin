@@ -5,6 +5,9 @@ This project adheres to semantic versioning.
 
 ## [Unreleased]
 
+### Removed
+- Dead `prompts/pi/init.md` prompt asset (never loaded by the spawn path) (#138 follow-up).
+
 ## [0.7.1] - 2026-06-13
 
 ### Added

@@ -33,7 +33,6 @@ inside the worker's worktree.
 ```
 plugins/cmux-todo-board/prompts/pi/
   common-system.md      # Layer 1 — universal base
-  init.md               # Tiny dispatch message the worker receives
   roles/
     backend.md          # Layer 2 — backend role
     frontend.md         # Layer 2 — frontend role
@@ -85,15 +84,10 @@ Orchestrator                    agent-spawn.sh                 Pi Worker
                                                               6. Pi loads system
                                                                  prompt assets
 
-                                                              7. Pi reads init.md
-                                                                 as first message:
-                                                                 "Read ./.task-spec.md
-                                                                  and execute only
-                                                                  that task..."
-
-                                                              8. Pi reads
-                                                                 .task-spec.md,
-                                                                 executes task
+                                                              7. Pi reads
+                                                                 .task-spec.md
+                                                                 and executes
+                                                                 only that task
 ```
 
 ### Critical rule: orchestrator must NOT load asset contents
@@ -117,10 +111,7 @@ The `agent-spawn.sh` launch helper (inside the plugin's scripts directory).
 It resolves absolute paths using `$DIR/../../../prompts/pi/`, so they work
 regardless of the current working directory.
 
-### Shared init.md vs. per-role init?
-One shared `init.md` for all roles. The init message is the same regardless of
-role: "read the task spec and execute it." Role differences are in layer 2,
-loaded via `--append-system-prompt`.
+
 
 ### When would `--no-context-files` be used?
 For debugging or when a worker needs a completely blank system prompt (e.g.,

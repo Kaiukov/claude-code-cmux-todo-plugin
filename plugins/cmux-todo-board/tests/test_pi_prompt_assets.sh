@@ -14,7 +14,6 @@ SPAWN_SCRIPT="$SCRIPT_DIR/../skills/cmux-agent-workflows/scripts/agent-spawn.sh"
 # ─── Asset existence and non-empty ─────────────────────────────────────
 ASSETS=(
   "$PROMPTS_DIR/common-system.md"
-  "$PROMPTS_DIR/init.md"
   "$PROMPTS_DIR/roles/backend.md"
   "$PROMPTS_DIR/roles/frontend.md"
   "$PROMPTS_DIR/roles/frontend-top.md"

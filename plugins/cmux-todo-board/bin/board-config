@@ -2,10 +2,6 @@
 set -euo pipefail
 
 DEFAULT_LANG="EN"
-DEFAULT_MODELS_JSON='{"flash":"opencode/deepseek-v4-flash-free","pro":"opencode-go/deepseek-v4-pro","review":"opencode-go/deepseek-v4-pro","simple":"opencode/deepseek-v4-flash-free","top":"gpt-5.4"}'
-VALID_TIERS=(flash pro review simple top)
-# TBC: frontend (claude-sonnet-4-6) and frontend-top (claude-opus-4-8) model IDs
-# not yet user-confirmed against `pi --list-models`. Verify before production use.
 DEFAULT_PROFILES_JSON='{"backend":{"provider":"opencode-go","model":"deepseek-v4-pro","thinking":"high","tools":"read,bash,edit,write,grep,find,ls"},"backend-fast":{"provider":"opencode","model":"deepseek-v4-flash-free","thinking":"low","tools":"read,bash,edit,write,grep,find,ls"},"repo-scout":{"provider":"opencode","model":"nemotron-3-ultra-free","thinking":"medium","tools":"read,bash,grep,find,ls"},"docs":{"provider":"opencode","model":"mimo-v2.5-free","thinking":"low","tools":"read,bash,edit,write,grep,find,ls"},"test":{"provider":"openai-codex","model":"gpt-5.4-mini","thinking":"medium","tools":"read,bash,edit,write,grep,find,ls"},"tiny-patch":{"provider":"openai-codex","model":"gpt-5.4-mini","thinking":"low","tools":"read,bash,edit,write,grep,find,ls"},"review":{"provider":"opencode-go","model":"deepseek-v4-pro","thinking":"high","tools":"read,bash,grep,find,ls"},"frontend":{"provider":"anthropic","model":"claude-sonnet-4-6","model_status":"TBC","gate":"user-permission","thinking":"medium","tools":"read,bash,edit,write,grep,find,ls"},"frontend-top":{"provider":"anthropic","model":"claude-opus-4-8","model_status":"TBC","gate":"user-permission","thinking":"high","tools":"read,bash,edit,write,grep,find,ls"}}'
 VALID_PROFILES=(backend backend-fast repo-scout docs test tiny-patch review frontend frontend-top)
 CONFIG_FILE=".tasks/config.json"
@@ -14,7 +10,6 @@ usage() {
   cat <<EOF
 Usage: board-config --get
        board-config --set-language <code>
-       board-config --get-model <tier> [--provider] [--effort] [--json]
        board-config --get-profile <name> [--provider] [--model] [--thinking] [--tools] [--json]
        board-config --help|-h
 
@@ -26,13 +21,6 @@ Commands:
   --set-language <code> Write/update the language in ${CONFIG_FILE},
                         preserving any other keys. Code is normalized
                         (uppercased, trimmed). Rejects empty/whitespace.
-  --get-model <tier>    Resolve the model for a tier (flash|pro|review|simple|top).
-                        Reads overrides from ${CONFIG_FILE}, resolves through the
-                        model-registry if the tier is assigned to a registry entry,
-                        falls back to built-in defaults.
-    --provider          Also print the provider (opencode|codex).
-    --effort            Also print the reasoning effort (low|medium|high) if set.
-    --json              Print full resolution as JSON: {model, provider, effort}.
   --get-profile <name>  Resolve a Pi role profile (backend|backend-fast|
                         repo-scout|docs|test|tiny-patch|review|frontend|
                         frontend-top). Reads overrides from .profiles.<name> in
@@ -84,75 +72,6 @@ resolve_language() {
   else
     echo "$lang"
   fi
-}
-
-# auto_detect_provider <model-id> — detect backend from model pattern.
-auto_detect_provider() {
-  local model="$1"
-  if [[ "$model" == */* ]]; then echo "opencode"; return; fi
-  local lc
-  lc="$(printf '%s' "$model" | tr '[:upper:]' '[:lower:]')"
-  case "$lc" in
-    gpt-*|o1-*|o3-*|o4-*|codex*|chatgpt-*) echo "codex" ;;
-    *) echo "opencode" ;;
-  esac
-}
-
-# resolve_model_full <tier> <json> — resolve tier to {model, provider, effort}.
-# Prints JSON object on stdout. Returns non-zero on unknown tier.
-# <json> is the raw content of .tasks/config.json (may be empty/missing).
-# Resolution order:
-#   1. .models.<tier> in config → if value matches a model-registry key, resolve through registry
-#   2. .models.<tier> in config → if value is bare model ID, use directly + auto-detect provider
-#   3. Fall back to DEFAULT_MODELS_JSON (bare model ID + auto-detect provider)
-resolve_model_full() {
-  local tier="$1"
-  local config_json="$2"
-
-  local found="" t
-  for t in "${VALID_TIERS[@]}"; do
-    [[ "$tier" == "$t" ]] && found=1 && break
-  done
-  if [[ -z "$found" ]]; then
-    echo "board-config: unknown model tier '${tier}'. Valid: ${VALID_TIERS[*]}" >&2
-    return 1
-  fi
-
-  local model="" provider="" effort=""
-
-  local model_ref
-  if [[ -n "$config_json" ]]; then
-    model_ref="$(echo "$config_json" | jq -r --arg t "$tier" '.models[$t] // empty' 2>/dev/null)"
-  fi
-
-  if [[ -n "$model_ref" ]]; then
-    # Check if model_ref is a key in model-registry
-    local registry_entry
-    registry_entry="$(echo "$config_json" | jq -r --arg r "$model_ref" '.["model-registry"][$r] // empty' 2>/dev/null)"
-    if [[ -n "$registry_entry" ]]; then
-      model="$(echo "$registry_entry" | jq -r '.model // empty')"
-      provider="$(echo "$registry_entry" | jq -r '.provider // "opencode"')"
-      effort="$(echo "$registry_entry" | jq -r '.reasoning_effort // empty')"
-    else
-      model="$model_ref"
-      provider="$(auto_detect_provider "$model")"
-    fi
-  else
-    model="$(echo "$DEFAULT_MODELS_JSON" | jq -r --arg t "$tier" '.[$t]')"
-    provider="$(auto_detect_provider "$model")"
-  fi
-
-  jq -n --arg model "$model" --arg provider "$provider" --arg effort "$effort" \
-    '{model: $model, provider: $provider} + (if $effort != "" then {reasoning_effort: $effort} else {} end)'
-}
-
-# resolve_model <tier> <json> — print model id for tier. Backward-compatible wrapper.
-resolve_model() {
-  local result
-  if ! result="$(resolve_model_full "$1" "$2")"; then
-    return 1
-  fi
-  echo "$result" | jq -r '.model'
 }
 
 # --- Profile resolver (mirrors resolve_model_full) ---
@@ -247,46 +166,6 @@ if [[ $# -ge 2 && "$1" == "--set-language" ]]; then
   exit 0
 fi
 
-if [[ $# -ge 2 && "$1" == "--get-model" ]]; then
-  tier="$2"
-  shift 2
-
-  if [[ -f "$CONFIG_FILE" ]]; then
-    json="$(cat "$CONFIG_FILE")"
-  else
-    json=""
-  fi
-
-  show_provider=""
-  show_effort=""
-  show_json=""
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      --provider) show_provider=1 ;;
-      --effort)   show_effort=1 ;;
-      --json)     show_json=1 ;;
-      *) echo "board-config: unknown flag '$1' for --get-model" >&2; exit 1 ;;
-    esac
-    shift
-  done
-
-  if ! result="$(resolve_model_full "$tier" "$json")"; then
-    exit 1
-  fi
-
-  if [[ -n "$show_json" ]]; then
-    echo "$result" | jq '.'
-  elif [[ -n "$show_provider" && -n "$show_effort" ]]; then
-    echo "$result" | jq -r '.provider + "\n" + (.reasoning_effort // "")'
-  elif [[ -n "$show_provider" ]]; then
-    echo "$result" | jq -r '.provider'
-  elif [[ -n "$show_effort" ]]; then
-    echo "$result" | jq -r '.reasoning_effort // empty'
-  else
-    echo "$result" | jq -r '.model'
-  fi
-  exit 0
-fi
 
 if [[ $# -ge 2 && "$1" == "--get-profile" ]]; then
   name="$2"

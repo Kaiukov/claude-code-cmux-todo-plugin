@@ -36,11 +36,11 @@ One line each; every orchestrator turn must honour every rule.
    release, high-risk architecture change).
 2. **Operational guidance only.** This table describes *recommended* model/effort
    per work type. It does not silently override host-level model selection.
-   The orchestrator may request a tier via `board-config --get-model <tier>`
+   The orchestrator may request a profile via `board-config --get-profile <name>`
    but the host/provider ultimately controls what model runs.
-3. **Mechanical work → cheapest worker tier** (flash/simple). Never use an
+3. **Mechanical work → cheapest worker profile** (backend-fast/docs). Never use an
    expensive orchestrator model for mechanical tasks. Delegate formatting,
-   renames, boilerplate, and config/JSON changes to `flash` or `simple` workers.
+   renames, boilerplate, and config/JSON changes to `backend-fast` or `docs` workers.
 
 ## C — Tool-output budgets
 

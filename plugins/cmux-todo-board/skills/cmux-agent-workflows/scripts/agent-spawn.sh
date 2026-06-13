@@ -64,32 +64,6 @@ else
 fi
 [[ -d "$WT" ]] || die "worktree not found: $WT"
 
-# Resolve tier names (flash|pro|review|simple|top) via board-config.
-# Raw model ids (e.g. "deepseek/deepseek-v4-pro") pass through unchanged.
-# When a registry entry provides a provider override or reasoning effort,
-# consume those flags as well so dispatch uses the configured backend and
-# forwards the effort to the agent launch command.
-RESOLVED_PROVIDER=""
-RESOLVED_EFFORT=""
-case "$MODEL" in
-  flash|pro|review|simple|top)
-    REPO_ROOT="$(cd "$DIR/../../.." && pwd)"
-    if ! RESOLVED="$(REPO_ROOT="$REPO_ROOT" "$REPO_ROOT/bin/board-config" --get-model "$MODEL" 2>/dev/null)"; then
-      die "board-config --get-model $MODEL failed"
-    fi
-    log "resolved tier $MODEL → $RESOLVED"
-    if PROVIDER="$(REPO_ROOT="$REPO_ROOT" "$REPO_ROOT/bin/board-config" --get-model "$MODEL" --provider 2>/dev/null)" && [[ -n "$PROVIDER" ]]; then
-      RESOLVED_PROVIDER="$PROVIDER"
-      log "resolved provider: $RESOLVED_PROVIDER"
-    fi
-    if EFFORT="$(REPO_ROOT="$REPO_ROOT" "$REPO_ROOT/bin/board-config" --get-model "$MODEL" --effort 2>/dev/null)" && [[ -n "$EFFORT" ]]; then
-      RESOLVED_EFFORT="$EFFORT"
-      log "resolved effort: $RESOLVED_EFFORT"
-    fi
-    MODEL="$RESOLVED"
-    ;;
-esac
-
 # Normalize the model to the CANONICAL provider per docs/models.json. The paid
 # opencode gateway for DeepSeek is `opencode-go/…`; the bare name or a direct
 # `deepseek/…` provider hits a different (unfunded) account. Rewrite both forms
@@ -102,9 +76,6 @@ esac
 # Resolve agent kind: explicit --agent flag > registry provider > auto-detect.
 if [[ -n "$AGENT_KIND" ]]; then
   agent_kind_supported "$AGENT_KIND" || die "unknown --agent: $AGENT_KIND  (supported: ${AGENT_KINDS[*]})"
-elif [[ -n "$RESOLVED_PROVIDER" ]]; then
-  agent_kind_supported "$RESOLVED_PROVIDER" || die "unknown provider from board-config: $RESOLVED_PROVIDER  (supported: ${AGENT_KINDS[*]})"
-  AGENT_KIND="$RESOLVED_PROVIDER"
 else
   AGENT_KIND="$(agent_kind_detect "$MODEL")"
 fi

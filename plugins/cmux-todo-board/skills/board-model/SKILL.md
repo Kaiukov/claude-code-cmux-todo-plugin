@@ -1,98 +1,67 @@
 ---
 name: board-model
-description: Manage project-level provider/model registry and tier assignments (asign, add, edit, delete).
+description: Manage project-level model assignments via profiles (select, list, catalog).
 ---
 
 # board-model
 
-Manage the project's model registry and delegation-tier assignments, stored in `.tasks/config.json`.
-
-The model registry holds named provider/model configurations. Tiers (`flash`, `pro`, `review`, `simple`, `top`) can be assigned to registry entries via `asign`. At dispatch time, `board-config --get-model <tier>` resolves the tier through the registry to obtain the model ID, backend/provider, and optional reasoning effort.
+Manage model assignments stored in `.tasks/config.json`. Models are assigned
+to roles (profiles) via `select --role`. The `catalog` command ingests the live
+`pi --list-models` catalog for model discovery. `list` shows current profile
+assignments with free/paid annotations.
 
 ## Commands
 
 ```
-board-model add <name> --model <model-id> [--provider <opencode|codex>] [--effort <low|medium|high>]
+board-model catalog [--refresh] [--json]
 ```
-Add a provider/model entry to the registry. `--provider` is auto-detected from the model pattern if omitted (`gpt-*`, `o1-*`, `o3-*`, `o4-*`, `codex*`, `chatgpt-*` → codex; anything with `/` → opencode). `--effort` is optional (codex reasoning effort). Rejects duplicate names.
+Ingest the live `pi --list-models` catalog and cache to `.tasks/model-catalog.json`.
+- `--refresh` — Re-run pi even if cache exists.
+- `--json` — Print the cached catalog as JSON array.
+Default prints a readable table grouped by provider with FREE/paid column.
 
 ```
-board-model edit <name> [--model <model-id>] [--provider <opencode|codex>] [--effort <low|medium|high>] [--rename <new-name>]
+board-model select --role <role> --id <provider/model> [--allow-paid] [--allow-claude]
 ```
-Edit an existing registry entry. At least one change flag is required. When renaming, all tier assignments follow the new name.
-
-```
-board-model delete <name> [--force]
-```
-Delete a registry entry. Refuses if the entry is still assigned to any tier, unless `--force` is used (which also clears the assignments).
-
-```
-board-model asign <name> --tier <tier>
-```
-Assign a registry entry to a delegation tier (`flash|pro|review|simple|top`). The entry must exist in the registry.
+Assign a catalog model to a role, persisted in `.tasks/config.json` under
+`.profiles.<role>`.
+- `--role` — Target role: `backend`, `backend-fast`, `repo-scout`, `docs`,
+  `test`, `tiny-patch`, `review`, `frontend`, `frontend-top`.
+- `--id` — Catalog model id in `provider/model` format.
+- `--allow-paid` — Allow assigning a paid model to a role whose default is free
+  (`backend-fast`, `repo-scout`, `docs`, `test`).
+- `--allow-claude` — Allow assigning an anthropic model to a frontend role.
 
 ```
 board-model list
 ```
-List all registry entries and current tier assignments (with default fallbacks shown for unconfigured tiers).
+List current profile assignments with `(free)` / `(paid)` annotations from the
+catalog. Emits a WARNING when paid model assignments are detected.
 
 ## Validation rules
 
-- **Name**: Non-empty, alphanumeric + hyphens/underscores, unique in registry.
-- **Model**: Non-empty identifier.
-- **Provider**: `opencode` or `codex`.
-- **Effort**: `low`, `medium`, or `high` (codex only).
-- **Tier**: One of `flash`, `pro`, `review`, `simple`, `top`.
-- **Delete safety**: Blocked when the entry is assigned to any tier. Use `--force` to override.
-- **Rename safety**: Target name must not collide with an existing registry entry.
+- **Role**: Must be one of the valid profiles.
+- **Model id**: Must be in `provider/model` format and exist in the catalog.
+- **Free guard**: Roles with free defaults block paid models unless `--allow-paid`.
+- **Claude guard**: Frontend roles block anthropic models unless `--allow-claude`.
 
 ## Resolution
 
-`board-config --get-model <tier>` resolves the tier through the model registry:
-
-1. Look up `.models.<tier>` in `.tasks/config.json`.
-2. If the value matches a `model-registry` key, resolve to the entry's `model`, `provider`, and `reasoning_effort`.
-3. If the value is a bare model ID (no registry match), use it directly with auto-detected provider.
-4. Fall back to built-in defaults when not configured.
-
-Additional `board-config` flags:
-- `--get-model <tier> --provider` → print provider name
-- `--get-model <tier> --effort` → print reasoning effort (or empty)
-- `--get-model <tier> --json` → print full `{model, provider, reasoning_effort}`
-
-## Agent dispatch integration
-
-When `agent-spawn.sh` receives a tier name (`flash|pro|review|simple|top`) it calls `board-config --get-model $TIER` to resolve it. The resolved model ID and provider flow into the agent launch command. Codex entries with `reasoning_effort` should be dispatched with `-c model_reasoning_effort=<effort>`.
+Profile assignments are resolved at dispatch time via
+`board-config --get-profile <name>`. See `board-config` skill for details.
 
 ## Examples
 
-### Configure PRO tier for heavy implementation
-
 ```bash
-board-model add my-pro --model gpt-5.5 --provider codex --effort high
-board-model asign my-pro --tier pro
-board-config --get-model pro              # → gpt-5.5
-board-config --get-model pro --provider   # → codex
-board-config --get-model pro --effort     # → high
+# Assign a free model to the docs role
+board-model select --role docs --id opencode/deepseek-v4-flash-free
+
+# Assign a paid model with explicit permission
+board-model select --role docs --id opencode-go/deepseek-v4-pro --allow-paid
+
+# Review current assignments
+board-model list
+
+# Refresh and browse the model catalog
+board-model catalog --refresh
 ```
-
-### Configure simple tier for low-effort documentation
-
-```bash
-board-model add cheap-gpt --model gpt-5.4-mini --provider codex --effort low
-board-model asign cheap-gpt --tier simple
-board-config --get-model simple --json    # → {"model":"gpt-5.4-mini","provider":"codex","reasoning_effort":"low"}
-```
-
-### Batch non-interactive setup
-
-```bash
-board-model add pro-ai --model gpt-5.5 --provider codex --effort medium
-board-model asign pro-ai --tier pro
-board-model eddit pro-ai --effort high     # adjust effort later
-board-model list                           # review all registry + assignments
-```
-
-## Backward compatibility
-
-Existing configurations with bare model IDs in `.models` (e.g., `"pro": "opencode-go/deepseek-v4-pro"`) continue to work. When a model ID does not match any `model-registry` key, `board-config` treats it as a direct model identifier with auto-detected provider — identical to previous behavior.

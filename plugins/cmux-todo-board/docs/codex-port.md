@@ -60,13 +60,13 @@ Everything else is reused as-is.
 Worker backend selection is config-driven. New scripts must not hardcode model
 IDs.
 
-- `bin/board-config --get-model <tier>` resolves the tier to a model id.
-- `skills/cmux-agent-workflows/scripts/agent-spawn.sh <split> <wt> <model|tier> [label] [extra] --agent pi`
+- `bin/board-config --get-profile <name>` resolves a profile to a model id.
+- `skills/cmux-agent-workflows/scripts/agent-spawn.sh <split> <wt> --profile <name> [label] [extra]`
   routes the pane to the pi backend.
 - Concrete Pi example:
 
   ```bash
-  agent-spawn.sh right <wt> simple <label> --agent pi
+  agent-spawn.sh right <wt> --profile backend <label>
   ```
 
 - `agent-send.sh` and `agent-kill.sh` accept the same backend via

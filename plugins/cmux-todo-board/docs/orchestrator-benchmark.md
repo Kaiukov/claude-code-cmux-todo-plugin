@@ -52,7 +52,7 @@ This procedure measures orchestration overhead in a controlled, reproducible cyc
 
 | Metric | Source | When to capture | Unit |
 |--------|--------|----------------|------|
-| Model + effort | `/config` or `board-config --get-model` explicit | Pre-dispatch | e.g. `claude-sonnet-4-20250514:thinking` |
+| Model + effort | `/config` or `board-config --get-profile` explicit | Pre-dispatch | e.g. `claude-sonnet-4-20250514:thinking` |
 | `/usage` before | `/usage` output (prompt tokens, completion tokens, cost) | After step 3, before dispatch | tokens, USD |
 | `/usage` after | `/usage` output (prompt tokens, completion tokens, cost) | After step 8 | tokens, USD |
 | `/context` snapshot before | `/context` full output | After step 3, before dispatch | KB |

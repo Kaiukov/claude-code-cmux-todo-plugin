@@ -4,21 +4,22 @@
 > default to opencode deepseek. Before delegating, check the canonical
 > `docs/models.json` for fresh model ids.
 
-## Model Tiers
+## Model Profiles
 
-| Tier | Model | Role |
+| Profile | Model | Role |
 |------|-------|------|
-| **flash** | `opencode/deepseek-v4-flash-free` | Mechanics, docs, routine, glue/config/tests. Default free worker (replaces paid deepseek-v4-flash). |
-| **pro** | `opencode-go/deepseek-v4-pro` | Complex / reasoning-heavy / finance-critical: main IMPLEMENT tier. |
-| **review** | `codex gpt-5.4` (`--dangerously-bypass-approvals-and-sandbox`) | REVIEW of heavy/financial PRs after pro. Conserve until 2026-06-11; explicit request or unavoidable review only. |
-| **simple** | `codex gpt-5.4-mini` | Simple/docs on codex side. Conserved. |
-| **top** | `codex gpt-5.5` (`--yolo`) | Especially complex; ONLY on explicit user request. |
+| **backend-fast** | `opencode/deepseek-v4-flash-free` | Mechanics, docs, routine, glue/config/tests. Default free worker (replaces paid deepseek-v4-flash). |
+| **backend** | `opencode-go/deepseek-v4-pro` | Complex / reasoning-heavy / finance-critical: main IMPLEMENT role. |
+| **review** | `opencode-go/deepseek-v4-pro` | REVIEW of heavy/financial PRs after implementation. |
+| **docs** | `opencode/mimo-v2.5-free` | Documentation tasks. Free worker. |
+| **test** | `openai-codex/gpt-5.4-mini` | Test authoring and execution. |
+| **tiny-patch** | `openai-codex/gpt-5.4-mini` | Small targeted patches. |
 
 ## Rules
 
-- **Docs → flash ONLY** (never pro/codex).
+- **Docs → docs profile ONLY** (never backend/review).
 - UI/widget DESIGN (sparkline, layout, colors) → the Opus orchestrator codes it itself (not delegated); widget logic/config is still delegated.
-- Finance-critical pipeline: pro IMPLEMENT → codex gpt-5.4 REVIEW.
+- Finance-critical pipeline: backend IMPLEMENT → review REVIEW.
 - Hard gate is ALWAYS the orchestrator's: independently verify agent output (typecheck + tests + live DB/KV) before merge; never trust self-report.
 - ≤2 agents in flight at once.
 

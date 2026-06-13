@@ -19,62 +19,6 @@ cd "$TMP"
 
 failures=0
 
-# ── Tier defaults ──
-
-echo "=== T1: --get-model flash resolves to deepseek-v4-flash-free ==="
-result="$("$BOARD_CONFIG" --get-model flash 2>&1)"
-if [[ "$result" == "opencode/deepseek-v4-flash-free" ]]; then
-  echo "PASS"
-else
-  echo "FAIL: got '$result'"
-  failures=$((failures + 1))
-fi
-
-echo "=== T2: --get-model flash --provider resolves to opencode ==="
-provider="$("$BOARD_CONFIG" --get-model flash --provider 2>&1)"
-if [[ "$provider" == "opencode" ]]; then
-  echo "PASS"
-else
-  echo "FAIL: got '$provider'"
-  failures=$((failures + 1))
-fi
-
-echo "=== T3: --get-model pro resolves to deepseek-v4-pro ==="
-result="$("$BOARD_CONFIG" --get-model pro 2>&1)"
-if [[ "$result" == "opencode-go/deepseek-v4-pro" ]]; then
-  echo "PASS"
-else
-  echo "FAIL: got '$result'"
-  failures=$((failures + 1))
-fi
-
-echo "=== T4: --get-model pro --provider resolves to opencode ==="
-provider="$("$BOARD_CONFIG" --get-model pro --provider 2>&1)"
-if [[ "$provider" == "opencode" ]]; then
-  echo "PASS"
-else
-  echo "FAIL: got '$provider'"
-  failures=$((failures + 1))
-fi
-
-echo "=== T5: --get-model simple resolves to deepseek-v4-flash-free ==="
-result="$("$BOARD_CONFIG" --get-model simple 2>&1)"
-if [[ "$result" == "opencode/deepseek-v4-flash-free" ]]; then
-  echo "PASS"
-else
-  echo "FAIL: got '$result'"
-  failures=$((failures + 1))
-fi
-
-echo "=== T6: --get-model top resolves to gpt-5.4 (NOT gpt-5.5) ==="
-result="$("$BOARD_CONFIG" --get-model top 2>&1)"
-if [[ "$result" == "gpt-5.4" ]]; then
-  echo "PASS"
-else
-  echo "FAIL: got '$result'"
-  failures=$((failures + 1))
-fi
-
 # ── Profile defaults ──
 
 echo "=== P1: --get-profile docs --model → mimo-v2.5-free ==="
@@ -203,16 +147,7 @@ for profile in backend-fast repo-scout docs; do
     all_free_ok=false
   fi
 done
-# Also check tiers: flash and simple
-for tier in flash simple; do
-  model="$("$BOARD_CONFIG" --get-model "$tier" 2>&1)"
-  # Extract just the model part after the last /
-  model_id="${model##*/}"
-  if [[ "$model_id" != *-free ]]; then
-    echo "  FAIL: tier $tier model '$model' (id='$model_id') does not end in -free"
-    all_free_ok=false
-  fi
-done
+
 if $all_free_ok; then
   echo "PASS"
 else

@@ -46,34 +46,6 @@ resolve_language() {
   fi
 }
 
-DEFAULT_MODELS_JSON='{"flash":"opencode/deepseek-v4-flash-free","pro":"opencode-go/deepseek-v4-pro","review":"gpt-5.4","simple":"gpt-5.4-mini","top":"gpt-5.5"}'
-VALID_TIERS=(flash pro review simple top)
-
-resolve_model() {
-  local tier="$1"
-  local config_json="$2"
-
-  local found="" t
-  for t in "${VALID_TIERS[@]}"; do
-    [[ "$tier" == "$t" ]] && found=1 && break
-  done
-  if [[ -z "$found" ]]; then
-    echo "board-config: unknown model tier '${tier}'. Valid: ${VALID_TIERS[*]}" >&2
-    return 1
-  fi
-
-  local model
-  if [[ -n "$config_json" ]]; then
-    model="$(echo "$config_json" | jq -r --arg t "$tier" '.models[$t] // empty' 2>/dev/null)"
-  fi
-
-  if [[ -z "$model" ]]; then
-    model="$(echo "$DEFAULT_MODELS_JSON" | jq -r --arg t "$tier" '.[$t]')"
-  fi
-
-  echo "$model"
-}
-
 failures=0
 
 echo "=== Test 1: resolve_language with empty json -> EN default ==="
@@ -179,88 +151,6 @@ if result=$(normalize_lang "EN"); then
   fi
 else
   echo "FAIL: normalize_lang exited non-zero"
-  failures=$((failures + 1))
-fi
-
-echo ""
-echo "=== Test 11 (resolve_model): default fallback for flash ==="
-result=$(resolve_model "flash" "")
-if [[ "$result" == "opencode/deepseek-v4-flash-free" ]]; then
-  echo "PASS"
-else
-  echo "FAIL: got '$result'"
-  failures=$((failures + 1))
-fi
-
-echo "=== Test 12 (resolve_model): default fallback for pro ==="
-result=$(resolve_model "pro" "")
-if [[ "$result" == "opencode-go/deepseek-v4-pro" ]]; then
-  echo "PASS"
-else
-  echo "FAIL: got '$result'"
-  failures=$((failures + 1))
-fi
-
-echo "=== Test 13 (resolve_model): default fallback for review ==="
-result=$(resolve_model "review" "")
-if [[ "$result" == "gpt-5.4" ]]; then
-  echo "PASS"
-else
-  echo "FAIL: got '$result'"
-  failures=$((failures + 1))
-fi
-
-echo "=== Test 14 (resolve_model): default fallback for simple ==="
-result=$(resolve_model "simple" "")
-if [[ "$result" == "gpt-5.4-mini" ]]; then
-  echo "PASS"
-else
-  echo "FAIL: got '$result'"
-  failures=$((failures + 1))
-fi
-
-echo "=== Test 15 (resolve_model): default fallback for top ==="
-result=$(resolve_model "top" "")
-if [[ "$result" == "gpt-5.5" ]]; then
-  echo "PASS"
-else
-  echo "FAIL: got '$result'"
-  failures=$((failures + 1))
-fi
-
-echo "=== Test 16 (resolve_model): configured override ==="
-result=$(resolve_model "pro" '{"models":{"pro":"custom/model-override"}}')
-if [[ "$result" == "custom/model-override" ]]; then
-  echo "PASS"
-else
-  echo "FAIL: got '$result'"
-  failures=$((failures + 1))
-fi
-
-echo "=== Test 17 (resolve_model): configured override preserves other tiers ==="
-result=$(resolve_model "simple" '{"models":{"pro":"custom/pro","flash":"custom/flash"}}')
-if [[ "$result" == "gpt-5.4-mini" ]]; then
-  echo "PASS"
-else
-  echo "FAIL: got '$result'"
-  failures=$((failures + 1))
-fi
-
-echo "=== Test 18 (resolve_model): unknown tier rejection ==="
-if result=$(resolve_model "unknown" "" 2>/dev/null); then
-  echo "FAIL: should have exited non-zero but got '$result'"
-  failures=$((failures + 1))
-else
-  echo "PASS"
-fi
-set -e
-
-echo "=== Test 19 (resolve_model): resolve from full config json ==="
-result=$(resolve_model "review" '{"language":"EN","models":{"review":"gpt-5.4-override","simple":"gpt-5.4-mini"}}')
-if [[ "$result" == "gpt-5.4-override" ]]; then
-  echo "PASS"
-else
-  echo "FAIL: got '$result'"
   failures=$((failures + 1))
 fi
 

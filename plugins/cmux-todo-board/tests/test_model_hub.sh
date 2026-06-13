@@ -221,8 +221,8 @@ fi
 echo "=== T13: list shows (free) annotations from catalog ==="
 cd "$TMP"
 run_model_ok catalog --refresh >/dev/null
-# Assign a free model to a tier so list has something to annotate
-echo '{"models":{"flash":"opencode/deepseek-v4-flash-free"}}' > .tasks/config.json
+# Assign a free model to a profile so list has something to annotate
+echo '{"profiles":{"docs":{"provider":"opencode","model":"deepseek-v4-flash-free"}}}' > .tasks/config.json
 output="$(run_model_ok list 2>&1)" || true
 if echo "$output" | grep -q "(free)"; then
   PASS
@@ -233,7 +233,7 @@ fi
 echo "=== T14: list shows (paid) annotations for paid models ==="
 cd "$TMP"
 run_model_ok catalog --refresh >/dev/null
-echo '{"models":{"pro":"opencode-go/deepseek-v4-pro"}}' > .tasks/config.json
+echo '{"profiles":{"backend":{"provider":"opencode-go","model":"deepseek-v4-pro"}}}' > .tasks/config.json
 output="$(run_model_ok list 2>&1)" || true
 if echo "$output" | grep -q "(paid)"; then
   PASS
@@ -244,7 +244,7 @@ fi
 echo "=== T15: list shows WARNING for paid assignments ==="
 cd "$TMP"
 run_model_ok catalog --refresh >/dev/null
-echo '{"models":{"pro":"opencode-go/deepseek-v4-pro"}}' > .tasks/config.json
+echo '{"profiles":{"backend":{"provider":"opencode-go","model":"deepseek-v4-pro"}}}' > .tasks/config.json
 output="$(run_model_ok list 2>&1)" || true
 if echo "$output" | grep -qi "WARNING"; then
   PASS
@@ -255,7 +255,7 @@ fi
 echo "=== T16: list without catalog still works (graceful degrade) ==="
 cd "$TMP"
 rm -f .tasks/model-catalog.json
-echo '{"models":{"flash":"some/model"}}' > .tasks/config.json
+echo '{"profiles":{"docs":{"provider":"opencode","model":"some-model"}}}' > .tasks/config.json
 if run_model_ok_strict list >/dev/null 2>&1; then
   PASS
 else
@@ -273,32 +273,6 @@ echo "=== T18: select with unknown role REFUSED ==="
 cd "$TMP"
 run_model_ok catalog --refresh >/dev/null
 if run_model_fail select --role bogus --id opencode/deepseek-v4-flash-free; then
-  PASS
-fi
-
-echo "=== T19: select with --tier persists to .models.<tier> ==="
-cd "$TMP"
-rm -f .tasks/config.json
-run_model_ok catalog --refresh >/dev/null
-run_model_ok select --tier flash --id opencode/deepseek-v4-flash-free >/dev/null
-tier_val="$(jq -r '.models.flash // empty' .tasks/config.json)"
-if [[ "$tier_val" == "opencode/deepseek-v4-flash-free" ]]; then
-  PASS
-else
-  FAIL "expected .models.flash = opencode/deepseek-v4-flash-free, got $tier_val"
-fi
-
-echo "=== T20: select --tier with invalid tier REFUSED ==="
-cd "$TMP"
-run_model_ok catalog --refresh >/dev/null
-if run_model_fail select --tier bogus --id opencode/deepseek-v4-flash-free; then
-  PASS
-fi
-
-echo "=== T21: select with both --role and --tier REFUSED ==="
-cd "$TMP"
-run_model_ok catalog --refresh >/dev/null
-if run_model_fail select --role docs --tier flash --id opencode/deepseek-v4-flash-free; then
   PASS
 fi
 

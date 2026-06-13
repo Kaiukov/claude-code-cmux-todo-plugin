@@ -93,7 +93,7 @@ GitHub: <url>
 
 `skills/cmux-agent-workflows/scripts/`:
 - `wt-new.sh` — worktree off `origin/main`
-- `agent-spawn.sh` — spawn agent (model tier via `board-config --get-model <tier>`)
+- `agent-spawn.sh` — spawn agent (model via `--profile <name>` or raw model id)
 - `agent-send.sh` — send task spec
 - `poll-wait.sh` — event-driven + poll fallback (background)
 - `poll-push.sh` — git poll fallback (internal to poll-wait.sh)

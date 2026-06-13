@@ -1,6 +1,6 @@
 ---
 name: cmux-agent-workflows-lite
-description: Default delegation reference — compact delegation cycle, script table, and model tiers for routine sessions. For advanced topics (backends, hooks install, codex gotchas, live-deploy traps), use cmux-agent-workflows.
+description: Default delegation reference — compact delegation cycle, script table, and model profiles for routine sessions. For advanced topics (backends, hooks install, codex gotchas, live-deploy traps), use cmux-agent-workflows.
 ---
 
 # cmux-agent-workflows-lite
@@ -38,4 +38,4 @@ $S/pr-finish.sh 42 "$WT"                             # 6. merge
 $S/agent-kill.sh "$SURF" --agent pi --close    # 7. cleanup
 ```
 
-Model tiers: `flash`, `pro`, `review`, `simple`, `top` — resolved via `.tasks/config.json`.
+Model profiles: `backend`, `backend-fast`, `repo-scout`, `docs`, `test`, `tiny-patch`, `review`, `frontend`, `frontend-top` — resolved via `board-config --get-profile <name)`.

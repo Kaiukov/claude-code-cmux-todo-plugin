@@ -7,7 +7,7 @@ VALID_PROVIDERS=(opencode codex)
 VALID_EFFORTS=(low medium high)
 VALID_ROLES=(backend backend-fast repo-scout docs test tiny-patch review frontend frontend-top)
 # Role defaults: which roles default to free models (for the --allow-paid guard).
-# Based on the built-in tier assignments from board-config DEFAULT_PROFILES_JSON.
+# Based on the built-in profile defaults from board-config DEFAULT_PROFILES_JSON.
 ROLE_FREE_DEFAULTS=(backend-fast repo-scout docs test)
 # Frontend roles (for the --allow-claude guard).
 FRONTEND_ROLES=(frontend frontend-top)

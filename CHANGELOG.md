@@ -5,6 +5,13 @@ This project adheres to semantic versioning.
 
 ## [Unreleased]
 
+### Added
+- Unified model hub in `board-model`: `catalog` ingests the live `pi --list-models`
+  catalog (free flag from the `-free` suffix) and `select` lets the user assign a
+  catalog model to a role/tier persisted in `.tasks/config.json`, with guards that
+  block silent paid routing (`--allow-paid`) and Claude frontend routing
+  (`--allow-claude`); `list` annotates free/paid (#134).
+
 ### Changed
 - board-config default model map is now free-first: `flash`/`simple` tiers and the
   `backend-fast`/`repo-scout`/`docs` profiles use free `opencode/*-free` models;

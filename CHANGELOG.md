@@ -5,6 +5,8 @@ This project adheres to semantic versioning.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-06-13
+
 ### Changed
 - Profiles now carry an explicit `role` field selecting the prompt asset, decoupling profile name from `roles/*.md` filename (#138).
 - Refreshed `delegation-policy.md`: 9-profile table with role column; dropped stale budget embargo and dead `models.json` reference (#138).

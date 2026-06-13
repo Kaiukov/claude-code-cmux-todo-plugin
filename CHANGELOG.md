@@ -5,6 +5,8 @@ This project adheres to semantic versioning.
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-06-13
+
 ### Added
 - Unified model hub in `board-model`: `catalog` ingests the live `pi --list-models`
   catalog (free flag from the `-free` suffix) and `select` lets the user assign a

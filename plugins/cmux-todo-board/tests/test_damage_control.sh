@@ -251,10 +251,13 @@ test_regex_match() {
 
 # Use python3 for all regex tests (handles PCRE lookaheads properly)
 # Deny: rm -rf variants — pattern from YAML
-RM_RF_PATTERN='\brm\s+(?=.*-[^-]*[rR])(?=.*-[^-]*[fF]).*'
+RM_RF_PATTERN='(?<!git\s)\brm\s+(?=.*-[^-]*[rR])(?=.*-[^-]*[fF]).*'
 test_regex_match "rm -rf /"                "$RM_RF_PATTERN" "rm -rf /"                    "yes"
 test_regex_match "rm -rf ~"                "$RM_RF_PATTERN" "rm -rf ~"                    "yes"
 test_regex_match "rm -rf ."                "$RM_RF_PATTERN" "rm -rf ."                    "yes"
+test_regex_match "rm -fr /tmp/foo"         "$RM_RF_PATTERN" "rm -fr /tmp/foo"             "yes"
+test_regex_match "rm -r -f /tmp/foo"       "$RM_RF_PATTERN" "rm -r -f /tmp/foo"           "yes"
+test_regex_match "sudo rm -rf /"            "$RM_RF_PATTERN" "sudo rm -rf /"                "yes"
 
 # Deny: sudo rm
 test_regex_match "sudo rm -rf /"           '\bsudo\s+rm\b'              "sudo rm -rf /"               "yes"
@@ -304,6 +307,11 @@ test_regex_match "safe: rm file.txt"       "$RM_RF_PATTERN"      "rm file.txt"  
 test_regex_match "safe: --force-with-lease" "$GIT_FORCE_PATTERN" "git push origin main --force-with-lease" "no"
 test_regex_match "safe: git reset --soft"  '\bgit\s+reset\s+--hard\b'  "git reset --soft HEAD~1" "no"
 test_regex_match "safe: mkdir not mkfs"    '\bmkfs\.'            "mkdir -p /tmp/foo"           "no"
+
+# #129: git rm with dashed paths must NOT trigger rm -rf deny rule
+test_regex_match "safe: git rm a/b-c-d.md" "$RM_RF_PATTERN"      "git rm a/b-c-d.md"           "no"
+test_regex_match "safe: git rm dashed-path" "$RM_RF_PATTERN"      "git rm docs/research/legacy-removal-surface.md" "no"
+test_regex_match "safe: git rm plain"       "$RM_RF_PATTERN"      "git rm src/old-file.js"       "no"
 
 # ══════════════════════════════════════════════════════════════════════
 # 8. damage-control.ts has NO external yaml import (#91 regression fix)

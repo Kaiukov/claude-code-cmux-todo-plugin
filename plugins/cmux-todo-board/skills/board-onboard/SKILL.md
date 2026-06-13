@@ -76,8 +76,8 @@ script-based workflow. Full script documentation lives in `cmux-agent-workflows`
 
 > **On-demand detail — task spec placement:** The `.task-spec.md` MUST live inside the agent
 > worktree (`<worktree>/.task-spec.md`), never `/tmp` or external dirs, to avoid
-> 'Access external directory' permission prompts. Model tiers are resolved via
-> `board-config --get-model <tier>`.
+> 'Access external directory' permission prompts. Model profiles are resolved via
+> `board-config --get-profile <name)`.
 
 ## 5. On invocation
 

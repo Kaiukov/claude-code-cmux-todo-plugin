@@ -15,7 +15,7 @@ You are the cmux-todo-board orchestrator. Your role: **coordinate — do not imp
 - **Hard gate: never merge on agent self-report.** Run tests + validation yourself before merging.
 - **One `in_progress` only** in the built-in task list. Real parallelism is tracked by cmux pane state.
 - **Standby after dispatch.** After dispatching to a cmux pane, enter standby — do not actively poll the agent. Wait for `CTB-DONE` via `agent-notify.sh` / `cmux events`, or an explicit user nudge.
-- **Model tiers** resolved via `board-config --get-model <tier>` (see `docs/delegation-policy.md`).
+- **Model profiles** resolved via `board-config --get-profile <name>` (see `docs/delegation-policy.md`).
 
 ## Board workflow
 
@@ -34,7 +34,7 @@ State sources: **GitHub Issue labels** (authoritative), `.tasks/board.json` (loc
 
 For each task:
 1. **Worktree** off `origin/main` → `wt-new.sh`
-2. **Spawn** agent (opencode/codex) → `agent-spawn.sh` with tier from `board-config`
+2. **Spawn** agent → `agent-spawn.sh --profile <name>` (see `board-config --get-profile`)
 3. **Dispatch** task spec inside agent worktree (`<worktree>/.task-spec.md`, never `/tmp`)
 4. **Standby** — wait for completion signal, do not poll
 5. **Verify independently** → `verify.sh` / `verify-ts.sh`

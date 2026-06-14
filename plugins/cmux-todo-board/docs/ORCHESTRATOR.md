@@ -96,7 +96,7 @@ GitHub: <url>
 - `worker-spawn.sh <worktree> [--profile <name>] [label]` — starts a headless `pi -p --mode json -a` worker and echoes its PID
 - `worker-watch.sh --pid <PID> --out <WT>/out.json --worktree <WT>` — canonical waiter / liveness watchdog for headless `pi` workers
 - `bin/orch-spawn` / `bin/orch-tmux-spawn --issue <id> --worktree <WT> ...` — optional detached `tmux` wrapper around `worker-spawn.sh` + `worker-watch.sh`; creates an `orch-*` session plus `.tasks/orchestrator/runs/<issue>-<role>-<timestamp>.json` and `.tasks/orchestrator/logs/<issue>-<role>-<timestamp>.log` so status tooling can track the worker without treating `tmux` as lifecycle authority
-- `verify.sh` / `verify-ts.sh` — hard gate
+- `verify.sh` — hard gate; TS helper archived in legacy-reference
 - `pr-finish.sh` — merge + cleanup
 
 ## Standby after dispatch {#standby-after-dispatch}

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Squash-merge a PR and clean up its worktree. Run AFTER verify-ts.sh passes.
+# Squash-merge a PR and clean up its worktree. Run AFTER verify.sh passes.
 # The local-branch delete failing while a worktree is checked out is harmless —
 # this script removes the worktree first to avoid that noise.
 #

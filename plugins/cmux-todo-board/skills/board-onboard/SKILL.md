@@ -85,9 +85,8 @@ The canonical cycle is **worktree → headless `pi -p` background spawn → stan
    `KILLED_TIMEOUT` (124). Kill a stuck worker with `kill <PID>`.
 5. `verify.sh` → hard gate. 6. `pr-finish.sh` → merge (only with the user's permission).
 
-The parked cmux 3×3 dashboard (`parked/cmux-dashboard/`) is optional, for watch/intervene only.
-See `board-onboard-lite` for the compact reference or `cmux-agent-workflows-lite` for the
-script-based workflow. Full script documentation lives in `cmux-agent-workflows` (on-demand).
+The dashboard is legacy and optional, for watch/intervene only.
+See `board-onboard-lite` for the compact reference. Full script documentation lives in `cmux-agent-workflows` (on-demand).
 
 > **On-demand detail — task spec placement:** The `.task-spec.md` MUST live inside the worker
 > worktree (`<worktree>/.task-spec.md`), never `/tmp` or external dirs, to avoid

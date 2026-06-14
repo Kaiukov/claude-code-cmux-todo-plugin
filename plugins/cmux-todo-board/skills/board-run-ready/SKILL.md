@@ -26,7 +26,7 @@ Use compact helpers, not a full board read:
 
 ## Dispatch
 
-For the routine delegation workflow (worktree → headless `pi -p` spawn → dispatch → standby), see `cmux-agent-workflows-lite`. The sections below cover the run-ready–specific dispatch flow.
+For the routine delegation workflow (worktree → headless `pi -p` spawn → dispatch → standby), see `orchestrator-dispatch` / `bin/orch-dispatch`. The sections below cover the run-ready–specific dispatch flow.
 
 ### Step 0: Generate `.task-spec.md`
 

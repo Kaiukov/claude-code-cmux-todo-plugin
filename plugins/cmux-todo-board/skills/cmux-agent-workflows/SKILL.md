@@ -1,6 +1,6 @@
 ---
 name: cmux-agent-workflows
-description: Advanced cmux agent orchestration helpers — on-demand / advanced only. Covers agent backends, hook installation, codex gotchas, live-deploy traps, and detailed script implementation. For routine delegation, use cmux-agent-workflows-lite.
+description: Advanced cmux agent orchestration helpers — on-demand / advanced only. Covers agent backends, hook installation, codex gotchas, live-deploy traps, and detailed script implementation.
 ---
 
 # cmux agent workflows
@@ -36,7 +36,7 @@ worker-spawn.sh <worktree> <provider/model> [label]
 | `worker-spawn.sh <worktree> [--profile <name>] [label]` | Start a headless `pi` worker and echo the PID | `worker-spawn.sh $WT --profile backend 151` |
 | `worker-watch.sh --pid <PID> --out <WT>/out.json --worktree <WT>` | Canonical waiter / liveness watchdog for headless `pi` workers | `worker-watch.sh --pid $PID --out $WT/out.json --worktree $WT` |
 | `verify.sh <wt> [base-ref]` | Project-agnostic gate: `bash -n` on changed shell scripts + `bun test`/`npm test` if a test script exists; no-op otherwise | `verify.sh $WT` |
-| `verify-ts.sh <wt>` | TS-specific hard gate: typecheck + full `bun test`, exits non-zero on any failure | `verify-ts.sh ../wt-feat-foo` |
+| TS hard-gate helper | archived in legacy-reference; use the current project verification flow | `verify.sh ../wt-feat-foo` |
 | `pr-finish.sh <pr#> [wt]` | Remove worktree, squash-merge, delete branch | `pr-finish.sh 121 $WT` |
 
 `lib.sh` is shared (sourced by the others): `cmux_surfaces`, `cmux_tty`,
@@ -53,7 +53,7 @@ See the [canonical delegation cycle in `docs/ORCHESTRATOR.md`](../../docs/ORCHES
   or `verify.sh`'s `[base-ref]` arg), live as siblings of the repo
   (`../wt-<task>`), carry `.env`/`.env.local` if present, and get their own
   dependency install only when a `package.json` exists.
-- **Hard gate before merge**: run `verify.sh` (or `verify-ts.sh` for TS projects).
+- **Hard gate before merge**: run `verify.sh`; TS projects use the archived legacy-reference helper.
   Never merge on the worker's self-report.
 - **Model profiles** are config-driven via `.tasks/config.json` (see `bin/board-config --get-profile <name>`).
   Profiles are defined for each role — `backend`, `backend-fast`, `docs`, `review`, `test`, `tiny-patch`,

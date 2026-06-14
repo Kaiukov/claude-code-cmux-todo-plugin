@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$DIR/../../.." && pwd)"
+VERIFY_SCRIPT="${ORCH_VERIFY_SCRIPT:-$DIR/../skills/cmux-agent-workflows/scripts/verify.sh}"
+
+usage() {
+  cat >&2 <<'EOF'
+usage: orch-verify [base-ref]
+EOF
+}
+
+[[ $# -le 1 ]] || { usage; exit 2; }
+
+base_ref="${1:-}"
+[[ -x "$VERIFY_SCRIPT" ]] || { echo "ERROR: missing verify script at $VERIFY_SCRIPT" >&2; exit 1; }
+
+if [[ -n "$base_ref" ]]; then
+  exec "$VERIFY_SCRIPT" "$REPO_ROOT" "$base_ref"
+fi
+
+exec "$VERIFY_SCRIPT" "$REPO_ROOT"

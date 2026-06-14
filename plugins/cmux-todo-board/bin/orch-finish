@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FINISH_SCRIPT="${ORCH_FINISH_SCRIPT:-$DIR/../skills/cmux-agent-workflows/scripts/pr-finish.sh}"
+
+usage() {
+  cat >&2 <<'EOF'
+usage: orch-finish <pr-number> [worktree-path]
+EOF
+}
+
+[[ $# -ge 1 && $# -le 2 ]] || { usage; exit 2; }
+[[ -x "$FINISH_SCRIPT" ]] || { echo "ERROR: missing finish script at $FINISH_SCRIPT" >&2; exit 1; }
+
+exec "$FINISH_SCRIPT" "$@"

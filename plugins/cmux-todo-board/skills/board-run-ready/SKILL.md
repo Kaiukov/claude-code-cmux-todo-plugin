@@ -95,13 +95,13 @@ Never trust an agent's self-report. Run the project's tests **and**
 
 ## Completion notification flow
 
-- **PRIMARY:** completion is the worker process exit code plus the `CTB-DONE` sentinel in output and the worker's branch commit.
+- **PRIMARY:** completion is the worker process exit code plus a new commit on the branch (git progress) and the worker's branch commit.
 - **HEADLESS standby:** `worker-watch.sh --pid <PID> --out <WT>/out.json --worktree <WT>` is the canonical waiter for the default path.
 - No dashboard helpers are needed for the default path.
 
 ## Standby after dispatch
 
-After dispatching, wait on the worker process exit-code callback, the `CTB-DONE` sentinel, and the branch commit. No active polling in the default path.
+After dispatching, wait on the worker process exit-code callback, a new commit on the branch (git progress), and the branch commit. No active polling in the default path.
 
 ## MVP note
 

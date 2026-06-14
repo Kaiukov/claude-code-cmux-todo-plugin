@@ -73,14 +73,15 @@ is future work.
 The canonical cycle is **worktree → headless `pi -p` background spawn → standby → verify → merge → cleanup**. Scripts live in `skills/cmux-agent-workflows/scripts/`:
 
 1. `wt-new.sh <branch> <dir>` — branch a worktree off `origin/main`.
-2. Write `<worktree>/.task-spec.md` (Goal + Acceptance + Commit + `CTB-DONE`).
+2. Write `<worktree>/.task-spec.md` (Goal + Acceptance + Commit + a new commit on the branch).
 3. `worker-spawn.sh <worktree> --profile <name>` — launch the headless `pi -p`
    background worker; it **prints the worker PID** on stdout (log goes to stderr).
    The launcher layers `common-system.md` + `roles/<role>.md` + `worker-contract.md`
    onto the spec. Raw model form: `worker-spawn.sh <worktree> <provider/model> [label]`.
 4. `worker-watch.sh --pid <PID> --out <worktree>/out.json --worktree <worktree>` —
    standby; it watches the PID plus the pi session-jsonl heartbeat and prints
-   `STATUS=DONE` (exit 0), `CRASHED` (1), `KILLED_STALLED` (125), or
+   `STATUS=DONE` (exit 0) when it sees a new commit on the branch (git progress),
+   `CRASHED` (1) when the PID exits without git progress, `KILLED_STALLED` (125), or
    `KILLED_TIMEOUT` (124). Kill a stuck worker with `kill <PID>`.
 5. `verify.sh` → hard gate. 6. `pr-finish.sh` → merge (only with the user's permission).
 

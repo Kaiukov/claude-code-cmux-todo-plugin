@@ -22,6 +22,6 @@ $S/pr-finish.sh 42 "$WT"
 
 - `worker-spawn.sh` echoes the worker PID.
 - `worker-watch.sh` is the canonical waiter / liveness watchdog.
-- Completion = worker exit code + `CTB-DONE` + branch commit.
+- Completion = worker exit code + a new commit on the branch (git progress) + branch commit.
 
 Model profiles: `backend`, `backend-fast`, `repo-scout`, `docs`, `test`, `tiny-patch`, `review`, `frontend`, `frontend-top` — resolved via `board-config --get-profile <name>`.

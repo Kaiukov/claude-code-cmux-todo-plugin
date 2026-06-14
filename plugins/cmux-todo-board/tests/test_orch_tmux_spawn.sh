@@ -55,7 +55,7 @@ set -euo pipefail
 printf '%s\n' "$*" > "${WORKER_SPAWN_ARGS_LOG:?}"
 wt="$1"
 mkdir -p "$wt"
-printf 'EXIT=0\nCTB-DONE\n' > "$wt/out.json"
+printf 'done\n' > "$wt/out.json"
 printf '4242\n'
 EOF
   chmod +x "$TESTDIR/bin/worker-spawn-stub"

@@ -33,4 +33,4 @@ overrides any conflicting instinct.
 
 ## 5. Output
 - Print the list of files deleted / edited / created, one line each.
-- Then print exactly: `CTB-DONE`
+- Completion is the local commit on the current branch; the orchestrator detects completion from git progress, not from any printed sentinel.

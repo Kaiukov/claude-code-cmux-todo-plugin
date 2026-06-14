@@ -88,6 +88,7 @@ SESSION_ROOT="$HOME/.pi/agent/sessions"
 slug="$(printf '%s' "$WORKTREE" | sed 's#/#-#g')"
 PRIMARY_DIR="$SESSION_ROOT/-${slug}--"
 WATCH_START="$(date +%s)"
+BASE_HEAD="$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || echo none)"
 
 heartbeat_mtime() {
   local mtime=""
@@ -127,11 +128,11 @@ while kill -0 "$PID" 2>/dev/null; do
   sleep "$INTERVAL"
 done
 
-if [[ -f "$OUT" ]] && { grep -q 'EXIT=0' "$OUT" 2>/dev/null || grep -q 'CTB-DONE' "$OUT" 2>/dev/null; }; then
+END_HEAD="$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || echo none)"
+if [[ "$END_HEAD" != "none" && "$END_HEAD" != "$BASE_HEAD" ]]; then
   echo "STATUS=DONE"
   exit 0
 fi
-
 echo "STATUS=CRASHED"
 if [[ -f "$OUT" ]]; then
   tail -n 8 "$OUT" >&2 || true

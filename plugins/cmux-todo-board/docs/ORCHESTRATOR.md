@@ -59,7 +59,7 @@ For each task you execute:
 1. **Worktree** off `origin/main` (sibling dir, carries `.env`).
 2. **Launch** the worker with `worker-spawn.sh <worktree> --profile <name>` (or `worker-spawn.sh <worktree> <provider/model>`); it backgrounds `pi -p --mode json -a` in the worktree and echoes the PID.
 3. **Dispatch** task spec — MUST live inside the worker worktree (`<worktree>/.task-spec.md`), never `/tmp`/external dirs, to avoid permission prompts. Use compact format (below).
-4. **Standby after dispatch.** Wait for the worker process exit-code callback, the `CTB-DONE` sentinel in output, and the worker's branch commit. Headless kill is `kill <PID>`.
+4. **Standby after dispatch.** Wait for a new commit on the branch (git progress) as the completion signal, with the worker process exit as an auxiliary cue. Headless kill is `kill <PID>`.
 5. **Verify independently** — hard gate: run tests + validation. Do not trust the worker's word.
 6. **Live-check** real resources (deploy / `--remote` / migration) yourself.
 7. **Merge** (squash) + clean up worktree and branch. `pr-finish.sh` prompts `Merge PR #N? (y/N)` and only proceeds on explicit `y`/`yes`; the non-interactive default is safe (no merge). The orchestrator must not bypass or automate this prompt — the user must type the confirmation.
@@ -105,8 +105,8 @@ After dispatching a headless background worker, the orchestrator MUST enter stan
 - **Use `worker-watch.sh` as the canonical waiter.** It watches the worker PID plus the pi session-jsonl heartbeat (`~/.pi/agent/sessions/-<slug>--/*.jsonl`; fallback: newest `*.jsonl` under `~/.pi/agent/sessions` written after the watcher starts). stdout is not a heartbeat.
   - `WORKING`: PID alive and heartbeat fresh (poll line on stderr).
   - `HUNG → killed`: heartbeat age ≥ stall threshold; watchdog `kill`s the PID, prints `STATUS=KILLED_STALLED`, exits 125.
-  - `CRASHED`: PID exits without `EXIT=0` or `CTB-DONE`; prints the last 8 lines of the out file, exits 1.
-  - `DONE`: PID exits with `EXIT=0` or `CTB-DONE`; prints `STATUS=DONE`, exits 0.
+  - `CRASHED`: PID exits without a new commit on the branch (git progress); prints the last 8 lines of the out file, exits 1.
+  - `DONE`: PID exits after a new commit on the branch (git progress); prints `STATUS=DONE`, exits 0.
   - Hard timeout: elapsed ≥ max; watchdog `kill`s the PID, prints `STATUS=KILLED_TIMEOUT`, exits 124.
 - **No active polling in the default path.** `worker-watch.sh` is the canonical waiter for headless `pi` workers.
 - **Headless kill is `kill <PID>`.**

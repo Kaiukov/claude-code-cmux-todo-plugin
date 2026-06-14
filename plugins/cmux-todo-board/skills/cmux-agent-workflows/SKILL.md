@@ -25,7 +25,7 @@ worker-spawn.sh <worktree> <provider/model> [label]
 ```
 
 - `worker-spawn.sh` backgrounds `pi -p --mode json -a`, writes `out.json`, and prints the PID.
-- Completion is the worker process exit code + `CTB-DONE` in output + the worker's branch commit.
+- Completion is the worker process exit code + a new commit on the branch (git progress) + the worker's branch commit.
 - `worker-watch.sh --pid <PID> --out <WT>/out.json --worktree <WT>` is the canonical waiter / liveness watchdog.
 
 ## Scripts (in `scripts/`)
@@ -45,7 +45,7 @@ worker-spawn.sh <worktree> <provider/model> [label]
 
 ## Standard delegation cycle
 
-See the [canonical delegation cycle in `docs/ORCHESTRATOR.md`](../../docs/ORCHESTRATOR.md#headless-delegation-cycle) for the full worktree→headless-pi→dispatch→standby→verify→merge flow. After dispatch, the orchestrator MUST enter [standby mode](../../docs/ORCHESTRATOR.md#standby-after-dispatch) — wait on the worker process exit code, the `CTB-DONE` sentinel, and the branch commit. The per-script reference above documents each script's interface in detail.
+See the [canonical delegation cycle in `docs/ORCHESTRATOR.md`](../../docs/ORCHESTRATOR.md#headless-delegation-cycle) for the full worktree→headless-pi→dispatch→standby→verify→merge flow. After dispatch, the orchestrator MUST enter [standby mode](../../docs/ORCHESTRATOR.md#standby-after-dispatch) — wait on the worker process exit code, a new commit on the branch (git progress), and the branch commit. The per-script reference above documents each script's interface in detail.
 
 ## Conventions (encoded in the scripts)
 

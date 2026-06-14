@@ -91,8 +91,21 @@ update_run_file --arg pid "$pid" --arg started "$started_at" --arg out "$OUT_FIL
   .status = "running"
 '
 
+read_only=0
+if [[ -z "$TOOLS" ]]; then
+  read_only=1
+else
+  tools_csv=",${TOOLS// /},"
+  if [[ "$tools_csv" != *",edit,"* && "$tools_csv" != *",write,"* ]]; then
+    read_only=1
+  fi
+fi
+
+watch_args=(--pid "$pid" --out "$OUT_FILE" --worktree "$WORKTREE")
+(( read_only )) && watch_args+=(--read-only)
+
 set +e
-watch_output="$("$WATCH_BIN" --pid "$pid" --out "$OUT_FILE" --worktree "$WORKTREE" 2>&1)"
+watch_output="$("$WATCH_BIN" "${watch_args[@]}" 2>&1)"
 watch_rc=$?
 set -e
 printf '%s\n' "$watch_output"

@@ -3,13 +3,13 @@
 # Watches the worker PID plus the pi session-jsonl heartbeat mtime.
 #
 # Usage: worker-watch.sh --pid <PID> --out <outfile> [--worktree <dir>] \
-#                        [--max <seconds=1800>] [--stall <seconds=120>] [--interval <seconds=10>]
+#                        [--max <seconds=1800>] [--stall <seconds=120>] [--interval <seconds=10>] [--read-only]
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; source "$DIR/lib.sh"
 
 usage() {
   cat >&2 <<'EOF'
-usage: worker-watch.sh --pid <PID> --out <outfile> [--worktree <dir>] [--max <seconds=1800>] [--stall <seconds=120>] [--interval <seconds=10>]
+usage: worker-watch.sh --pid <PID> --out <outfile> [--worktree <dir>] [--max <seconds=1800>] [--stall <seconds=120>] [--interval <seconds=10>] [--read-only]
 EOF
 }
 
@@ -51,7 +51,7 @@ newest_mtime_after() {
   printf '%s\n' "$newest"
 }
 
-PID=""; OUT=""; WORKTREE=""; MAX=1800; STALL=120; INTERVAL=10
+PID=""; OUT=""; WORKTREE=""; MAX=1800; STALL=120; INTERVAL=10; READ_ONLY=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --pid) [[ $# -ge 2 ]] || { usage; exit 2; }; PID="$2"; shift 2 ;;
@@ -66,6 +66,7 @@ while [[ $# -gt 0 ]]; do
     --stall=*) STALL="${1#--stall=}"; shift ;;
     --interval) [[ $# -ge 2 ]] || { usage; exit 2; }; INTERVAL="$2"; shift 2 ;;
     --interval=*) INTERVAL="${1#--interval=}"; shift ;;
+    --read-only) READ_ONLY=1; shift ;;
     -h|--help) usage; exit 2 ;;
     *) usage; exit 2 ;;
   esac
@@ -92,7 +93,7 @@ BASE_HEAD="$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || echo none)"
 
 heartbeat_mtime() {
   local mtime=""
-  if mtime="$(newest_mtime_in_dir "$PRIMARY_DIR" 2>/dev/null || true)" && [[ -n "$mtime" ]]; then
+  if mtime="$(newest_mtime_after "$PRIMARY_DIR" "$WATCH_START" 2>/dev/null || true)" && [[ -n "$mtime" ]]; then
     printf '%s\n' "$mtime"
     return 0
   fi
@@ -129,6 +130,19 @@ while kill -0 "$PID" 2>/dev/null; do
 done
 
 END_HEAD="$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null || echo none)"
+if (( READ_ONLY )); then
+  if [[ -s "$OUT" ]]; then
+    echo "STATUS=DONE"
+    exit 0
+  fi
+  echo "STATUS=CRASHED"
+  if [[ -f "$OUT" ]]; then
+    tail -n 8 "$OUT" >&2 || true
+  else
+    echo "[worker-watch] out file missing: $OUT" >&2
+  fi
+  exit 1
+fi
 if [[ "$END_HEAD" != "none" && "$END_HEAD" != "$BASE_HEAD" ]]; then
   echo "STATUS=DONE"
   exit 0

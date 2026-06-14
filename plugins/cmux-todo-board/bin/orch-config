@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PROFILES=(repo-scout backend reviewer)
+
+usage() {
+  cat <<'EOF'
+Usage: orch-config --list-profiles
+       orch-config --get-profile <name>
+       orch-config --help|-h
+
+Minimal orchestration profile resolver.
+
+Commands:
+  --list-profiles        Print supported profile names, one per line.
+  --get-profile <name>   Print the selected profile as compact JSON.
+  --help, -h             Show this help message.
+EOF
+  exit 0
+}
+
+is_known_profile() {
+  local name="$1"
+  case "$name" in
+    repo-scout|backend|reviewer) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+list_profiles() {
+  printf '%s\n' "${PROFILES[@]}"
+}
+
+get_profile_json() {
+  local name="$1"
+
+  if ! is_known_profile "$name"; then
+    echo "orch-config: unknown profile '$name'. Valid: ${PROFILES[*]}" >&2
+    return 1
+  fi
+
+  case "$name" in
+    repo-scout)
+      jq -cn \
+        --arg role "repo-scout" \
+        --arg runtime "pi" \
+        --arg model "deepseek-v4-flash" \
+        --arg permissions "read-only" \
+        --arg launch_mode "via-pi" \
+        '{role: $role, runtime: $runtime, model: $model, permissions: $permissions, launch_mode: $launch_mode}'
+      ;;
+    backend)
+      jq -cn \
+        --arg role "backend" \
+        --arg runtime "pi" \
+        --arg model "deepseek-v4-pro" \
+        --arg permissions "write" \
+        --arg launch_mode "via-pi" \
+        '{role: $role, runtime: $runtime, model: $model, permissions: $permissions, launch_mode: $launch_mode}'
+      ;;
+    reviewer)
+      jq -cn \
+        --arg role "reviewer" \
+        --arg runtime "pi" \
+        --arg model "deepseek-v4-pro" \
+        --arg permissions "read-only" \
+        --arg launch_mode "via-pi" \
+        '{role: $role, runtime: $runtime, model: $model, permissions: $permissions, launch_mode: $launch_mode}'
+      ;;
+  esac
+}
+
+case "${1:-}" in
+  --help|-h)
+    usage
+    ;;
+  --list-profiles)
+    if [[ $# -ne 1 ]]; then
+      echo "orch-config: --list-profiles takes no arguments" >&2
+      exit 1
+    fi
+    list_profiles
+    ;;
+  --get-profile)
+    if [[ $# -ne 2 ]]; then
+      echo "orch-config: usage: orch-config --get-profile <name>" >&2
+      exit 1
+    fi
+    get_profile_json "$2"
+    ;;
+  *)
+    echo "orch-config: missing or unknown command. Use --help." >&2
+    exit 1
+    ;;
+esac

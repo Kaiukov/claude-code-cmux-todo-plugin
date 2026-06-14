@@ -31,7 +31,7 @@ Canonical status order:
 | Command | Effect |
 |---------|--------|
 | `board-pull --repo owner/repo` | Fetch issues → `.tasks/board.json` |
-| `board-sync --issue N --status S` | Write status back to GitHub labels |
+| `gh` | Manually write status back to GitHub labels when needed |
 | `board-release --bump patch` | SemVer release helper |
 | `board-plan` | Mirror ready tasks into task list |
 | `board-run-ready` | Dispatch ready tasks to headless `pi` workers (cap: 2; parked 3×3 dashboard optional) |

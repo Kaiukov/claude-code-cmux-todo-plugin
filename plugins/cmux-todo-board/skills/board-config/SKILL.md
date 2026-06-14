@@ -55,5 +55,3 @@ explicitly overrides it with `board-config --set-language <code>`.
 
 ## See also
 
-- `board-model` — manage profile model assignments (`select --role`, `list`,
-  `catalog`).

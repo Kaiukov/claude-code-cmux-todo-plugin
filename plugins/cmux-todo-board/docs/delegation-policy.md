@@ -1,8 +1,8 @@
 # Delegation Model Policy
 
 > Models come from the profile table in `bin/board-config`
-> (`--get-profile <name> --json`) and the live `board-model catalog`. Paid
-> profiles (`frontend`, `frontend-top`) are gated behind explicit user permission.
+> (`--get-profile <name> --json`). Paid profiles (`frontend`, `frontend-top`)
+> are gated behind explicit user permission.
 
 ## Model Profiles
 

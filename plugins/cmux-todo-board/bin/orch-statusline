@@ -28,6 +28,44 @@ status_icon() {
   esac
 }
 
+resolve_runs_dir() {
+  local cwd="$1" candidate d
+  if [[ -n "${ORCH_REPO_ROOT:-}" ]]; then
+    candidate="$ORCH_REPO_ROOT/.tasks/orchestrator/runs"
+    if [[ -d "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  else
+    candidate="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null || true)"
+    if [[ -n "$candidate" ]]; then
+      candidate="$candidate/.tasks/orchestrator/runs"
+      if [[ -d "$candidate" ]]; then
+        printf '%s\n' "$candidate"
+        return 0
+      fi
+    fi
+  fi
+
+  # Canonical location: plugin root next to orch-tmux-spawn/orch-tmux-runner.
+  if [[ -d "$PLUGIN_ROOT/.tasks/orchestrator/runs" ]]; then
+    printf '%s\n' "$PLUGIN_ROOT/.tasks/orchestrator/runs"
+    return 0
+  fi
+
+  # Legacy fallback: walk up from cwd to support the pre-relocation layout.
+  d="$cwd"
+  for _ in 1 2 3 4 5 6; do
+    if [[ -d "$d/.tasks/orchestrator/runs" ]]; then
+      printf '%s\n' "$d/.tasks/orchestrator/runs"
+      return 0
+    fi
+    d="$(dirname "$d")"
+    [[ "$d" == "/" ]] && break
+  done
+  return 0
+}
+
 input="$(cat 2>/dev/null || true)"
 cwd=""
 if command -v jq >/dev/null 2>&1 && [[ -n "$input" ]]; then
@@ -35,18 +73,7 @@ if command -v jq >/dev/null 2>&1 && [[ -n "$input" ]]; then
 fi
 [[ -n "$cwd" ]] || cwd="$PWD"
 
-runs=""
-# Canonical location: plugin root next to orch-tmux-spawn/orch-tmux-runner.
-if [[ -d "$PLUGIN_ROOT/.tasks/orchestrator/runs" ]]; then
-  runs="$PLUGIN_ROOT/.tasks/orchestrator/runs"
-else
-  # Legacy fallback: walk up from cwd to support the pre-relocation layout.
-  d="$cwd"
-  for _ in 1 2 3 4 5 6; do
-    if [[ -d "$d/.tasks/orchestrator/runs" ]]; then runs="$d/.tasks/orchestrator/runs"; break; fi
-    d="$(dirname "$d")"; [[ "$d" == "/" ]] && break
-  done
-fi
+runs="$(resolve_runs_dir "$cwd")"
 
 # Live agent sessions (tmux is transport-liveness only).
 sessions=()
@@ -105,13 +132,14 @@ parts=()
 for s in "${sessions[@]}"; do
   key="${s#orch-}"                       # <issue>-<role>
   model="?"; task=""; state="running"
+  record_file=""
   if [[ -n "$runs" ]]; then
-    f="$(ls -t "$runs/$key-"*.json 2>/dev/null | head -1 || true)"
-    if [[ -n "$f" && -s "$f" ]]; then
-      model="$(jq -r '.model // ((.profile.provider // "?")+"/"+(.profile.model // "?"))' "$f" 2>/dev/null || echo "?")"
-      task="$(jq -r '.task // empty' "$f" 2>/dev/null || true)"
-      state="$(jq -r '.status // "running"' "$f" 2>/dev/null || echo running)"
-    fi
+    record_file="$(ls -t "$runs/$key-"*.json 2>/dev/null | head -1 || true)"
+  fi
+  if [[ -n "$record_file" && -s "$record_file" ]]; then
+    model="$(jq -r '.model // ((.profile.provider // "?")+"/"+(.profile.model // "?"))' "$record_file" 2>/dev/null || echo "?")"
+    task="$(jq -r '.task // empty' "$record_file" 2>/dev/null || true)"
+    state="$(jq -r '.status // "running"' "$record_file" 2>/dev/null || echo running)"
   fi
   if [[ "$model" == "?" ]] && command -v ps >/dev/null 2>&1; then
     runner_cmd="$(ps -ef 2>/dev/null | grep "orch-tmux-runner.sh" | grep -- "--run-file .*${key}-" | grep -v grep | head -1 || true)"

@@ -50,7 +50,7 @@ Never start `blocked`/`needs-info` without explicit user action.
 | 3 | `/board-plan` | Mirror `ready` items into built-in task list. |
 | 4 | `/board-run-ready` | Dispatch `ready` → headless `pi` workers (cap: 2 active). |
 
-`board-pull` is one-directional (GitHub → local). Sync-back via `board-sync --issue N --status STATUS --repo owner/repo`.
+`board-pull` is one-directional (GitHub → local). Status write-back to GitHub is done manually via `gh` by the orchestrator.
 
 ## headless delegation cycle {#delegation-cycle}
 

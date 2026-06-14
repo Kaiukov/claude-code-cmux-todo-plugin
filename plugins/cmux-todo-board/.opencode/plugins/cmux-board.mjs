@@ -66,33 +66,6 @@ export const CmuxBoardPlugin = async ({ project, client, $, directory, worktree 
           return result.stdout.toString()
         },
       }),
-      "board_sync": tool({
-        description:
-          "Write a single issue's status back to GitHub by swapping canonical status labels. Uses gh CLI.",
-        args: {
-          issue: tool.schema
-            .number()
-            .describe("GitHub issue number (required)"),
-          status: tool.schema
-            .string()
-            .describe(
-              "Target canonical status (inbox, ready, in-progress, needs-review, blocked, needs-info, done)"
-            ),
-          repo: tool.schema
-            .string()
-            .optional()
-            .describe("Repository as OWNER/REPO (or set BOARD_REPO env var)"),
-        },
-        async execute(args, context) {
-          const { directory, $ } = context
-          const repoArg = args.repo ? `--repo ${args.repo}` : ""
-          const result =
-            await $`"${BIN}/board-sync" --issue ${args.issue.toString()} --status ${args.status} ${repoArg}`.cwd(
-              directory
-            ).quiet()
-          return result.stdout.toString() || result.stderr.toString()
-        },
-      }),
     },
     "shell.env": async (input, output) => {
       output.env.BOARD_REPO = process.env.BOARD_REPO || ""

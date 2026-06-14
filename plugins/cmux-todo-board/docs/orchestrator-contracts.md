@@ -10,6 +10,13 @@ Use these fixed names:
 - run state: `.tasks/orchestrator/runs/<run-id>.json`
 - log: `.tasks/orchestrator/logs/<run-id>.log`
 
+## Portability contract
+There are two roots: plugin assets stay resolved relative to the plugin install dir, while work and run state live in the TARGET/host repo. The orchestrator is portable across a portfolio: run it in any git project and it operates on that repo, not the plugin.
+
+- TARGET repo resolution precedence: `ORCH_REPO_ROOT`, `--repo <path>` / `--repo-root <path>`, `git -C "$PWD" rev-parse --show-toplevel`.
+- Worktrees are siblings of the TARGET repo: `<dirname TARGET>/wt-issue-<n>-<role>`.
+- Run/log state lives in the TARGET repo: `<TARGET>/.tasks/orchestrator/{runs,logs}`.
+
 ## Run contract
 Each run record must include:
 - `run_id`

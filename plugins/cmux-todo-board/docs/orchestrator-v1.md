@@ -30,7 +30,7 @@ V1 roles are limited to:
 ## V1 bin entrypoints
 - `orch-config` — resolve profile config by role
 - `orch-dispatch` — accept `issue + role`, trigger spawn, return run status
-- `orch-spawn` — create branch/worktree/session/run state and launch the worker
+- `orch-spawn` — resolve the host repo (`ORCH_REPO_ROOT`/`--repo`/cwd), create a sibling worktree, session, and run state, then launch the worker
 - `orch-watch` — watch git/tmux signals and wake on progress
 - `orch-status` — show a compact snapshot of active runs
 - `orch-verify` — run the repo-level verify recipe for the current run
@@ -41,3 +41,4 @@ The V1 loop is intentionally small:
 issue → worktree/branch → tmux pi worker → commit/push → wake → verify → summary.
 
 The orchestrator treats git signals as the real progress signal, not pane noise.
+V1 is portable: run it inside any git repo and it operates on that repo, not the plugin.

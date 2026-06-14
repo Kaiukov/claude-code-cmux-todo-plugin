@@ -2,7 +2,7 @@
 
 Claude Code plugin that bridges GitHub Issues into a local task board,
 mirrors ready tasks into Claude's built-in task list, and dispatches work
-through cmux panes.
+to headless `pi` workers orchestrated under tmux via the `orch-*` pipeline.
 
 **Status:** MVP (one-directional: GitHub Issues → local board → task list).
 Sync-back to GitHub is future work. Installation is designed to source the marketplace
@@ -91,7 +91,7 @@ Run from your project folder, once the plugin is installed:
 /board-init --repo owner/repo    # 1. run ONCE per repo — create canonical labels
 /board-pull --repo owner/repo    # 2. fetch issues → .tasks/board.json + TODO.md
 /board-plan                      # 3. mirror `ready` issues into Claude's task list
-/board-run-ready                 # 4. dispatch ready tasks into cmux panes
+/board-run-ready                 # 4. dispatch ready tasks to headless `pi` workers
 ```
 
 Label your issues with `ready` (or the other canonical statuses) so `board-pull`
@@ -100,20 +100,26 @@ by status.
 
 ## Skills
 
-| Skill               | Description                                                |
-|---------------------|------------------------------------------------------------|
-| `/board-onboard`    | Run FIRST in a clean session — switch into orchestrator mode and load all board + cmux operating instructions. |
+| Skill | Description |
+|---|---|
+| `/board-onboard` | Run FIRST in a clean session — switch into orchestrator mode and load all board + orchestrator operating instructions. |
 | `/board-onboard-lite` | Compact orchestrator bootstrap for token-constrained sessions. Full rules at `plugins/cmux-todo-board/docs/ORCHESTRATOR.md`. |
-| `/cmux-agent-workflows-lite` | Compact delegation reference for cmux agent orchestration — script catalog, delegation cycle. Full reference at `plugins/cmux-todo-board/skills/cmux-agent-workflows/SKILL.md`. |
-| `/board-init`       | Initialize a repo with canonical board status labels. Run once per repo before board-pull. |
+| `/cmux-agent-workflows` | Advanced headless-pi orchestration helpers and script reference. |
+| `/board-init` | Initialize a repo with canonical board status labels. Run once per repo before board-pull. |
 | `/board-create-issue` | Turn a raw task description into a structured GitHub issue and create it. |
-| `/board-add-task`  | Add a local task without a GitHub issue. Local tasks live in `.tasks/local.json` and never touch GitHub. Local task status can be updated via `board-add --set <id> --status <status>`. |
-| `/board-pull`       | Fetch GitHub issues and render the local board. Supports `--strategy all-open` (default, one API call + local filter) and `--strategy labels` (per-label queries unioned). Use `--with-body` to include body text. |
-| `/board-sync`       | Write ONE issue's status back to GitHub by swapping its canonical label. Idempotent, preserves non-canonical labels. |
-| `/board-release`    | Bump SemVer versions, create git tags, and publish GitHub Releases with opt-in network safety gates. |
-| `/board-plan`       | Mirror ready tasks into Claude's built-in task list (cap: 5). |
-| `/board-run-ready`  | Dispatch ready tasks to cmux panes for parallel execution. Generates compact `.task-spec.md` with `forbidden_reads` guard. |
-| `/board`            | Show the board flow and operating rules.                   |
+| `/board-add-task` | Add a local task without a GitHub issue. Local tasks live in `.tasks/local.json` and never touch GitHub. Local task status can be updated via `board-add --set <id> --status <status>`. |
+| `/board-pull` | Fetch GitHub issues and render the local board. Supports `--strategy all-open` (default, one API call + local filter) and `--strategy labels` (per-label queries unioned). Use `--with-body` to include body text. |
+| `/board-release` | Bump SemVer versions, create git tags, and publish GitHub Releases with opt-in network safety gates. |
+| `/board-plan` | Mirror ready tasks into Claude's built-in task list (cap: 5). |
+| `/board-run-ready` | Dispatch ready tasks to headless `pi` workers for parallel execution. Generates compact `.task-spec.md` with `forbidden_reads` guard. |
+| `/board-config` | Manage board runtime configuration and Pi profile resolution in `.tasks/config.json`. |
+| `/board` | Show the board flow and operating rules. |
+| `/orchestrator-onboard` | Auto-switch to orchestrator mode and run first-run preflight. |
+| `/orchestrator-dispatch` | Dispatch one ready issue to the correct worker role. |
+| `/orchestrator-standby` | Watch a run passively for process and git progress. |
+| `/orchestrator-status` | Show one compact snapshot from live orchestrator state. |
+| `/orchestrator-verify` | Run the hard gate, review the diff, and report pass or fail. |
+| `/orchestrator-finish` | Close out the local run and remind the human merge gate rules. |
 
 ## Workflow
 
@@ -121,39 +127,13 @@ by status.
 GitHub Issues  --board-pull-->  .tasks/board.json  --board-plan-->  Claude task list
                                                               |
                                                               v
-                                             board-run-ready --> cmux panes
+                                         board-run-ready --> headless pi workers via orch-*
 ```
 
 GitHub labels are the source of truth for status; `board.json` is a local cache
-and `TODO.md` is a read-only render. The board is bidirectional — `board-sync`
-writes status back to GitHub labels. See [Quick start](#quick-start) for the
+and `TODO.md` is a read-only render. The board is one-directional (GitHub → local);
+status sync-back to GitHub is future work. See [Quick start](#quick-start) for the
 command sequence.
-
-## Limit monitor
-
-`plugins/cmux-todo-board/bin/limit-monitor` parses the Claude Code status line `rate_limits.seven_day`
-field and persists state to `.tasks/limit-monitor.json`. Register it as a status
-line command in `~/.claude/settings.json` so it receives `rate_limits` on stdin:
-
-```json
-{
-  "statusLine": {
-    "type": "command",
-    "command": "bash plugins/cmux-todo-board/bin/limit-monitor"
-  }
-}
-```
-
-**Environment variables:**
-
-| Variable           | Default      | Description                                  |
-|--------------------|--------------|----------------------------------------------|
-| `LIMIT_WARN_AT`    | `80`         | Percentage threshold for WARN notification   |
-| `LIMIT_CRIT_AT`    | `95`         | Percentage threshold for CRIT notification   |
-| `LIMIT_DATA_FILE`  | `.tasks/limit-monitor.json` | State persistence path       |
-
-On CRIT threshold breach it calls `cmux notify` (once per week max dedup).
-Degrades gracefully when stdin has no rate_limits data.
 
 ## Verification
 
@@ -164,8 +144,8 @@ bash plugins/cmux-todo-board/tests/test_board_render.sh
 # Run the union/dedup logic tests
 bash plugins/cmux-todo-board/tests/test_board_pull_union.sh
 
-# Run the label-swap logic tests
-bash plugins/cmux-todo-board/tests/test_board_sync.sh
+# Run the orchestrator config tests
+bash plugins/cmux-todo-board/tests/test_orch_config.sh
 
 # Validate plugin structure (if claude CLI available)
 claude plugin validate .
@@ -173,28 +153,29 @@ claude plugin validate .
 
 ## Scope
 
-- **MVP (Phase 1):** Pull issues → render board → plan → dispatch. Sync back via `board-sync`.
+- **MVP (Phase 1):** Pull issues → render board → plan → dispatch.
 - Only `ready` tasks are dispatched. `blocked` and `needs-info` are skipped.
 
 ## Files
 
-| Path                          | Role                              |
-|-------------------------------|-----------------------------------|
-| `.claude-plugin/plugin.json`  | Plugin manifest                   |
-| `plugins/cmux-todo-board/bin/board-init`              | Bash: create/normalize canonical labels |
-| `plugins/cmux-todo-board/bin/board-pull`              | Bash: fetch issues via `gh` (--with-body for full body) |
-| `plugins/cmux-todo-board/bin/board-render`            | Python: generate board.json + TODO.md |
-| `plugins/cmux-todo-board/bin/board-render-body`       | Bash: on-demand full-body retrieval for a single issue |
-| `plugins/cmux-todo-board/bin/board-status`            | Bash: compact board state for the orchestrator (counts + next ready) |
-| `plugins/cmux-todo-board/bin/board-next`              | Bash: return next actionable task for a given status |
-| `plugins/cmux-todo-board/bin/limit-monitor`           | Bash: weekly Claude Code limit monitor (status line command) |
-| `plugins/cmux-todo-board/skills/*/SKILL.md`           | Skill definitions                 |
-| `hooks/hooks.json`            | SessionStart board summary        |
-| `plugins/cmux-todo-board/docs/state-model.md`         | State mapping across representations |
-| `plugins/cmux-todo-board/docs/file-roles.md`          | Roles of generated files          |
-| `plugins/cmux-todo-board/docs/ORCHESTRATOR.md`        | Full orchestrator operating rules (referenced by board-onboard-lite) |
-| `plugins/cmux-todo-board/tests/`                      | Self-contained render tests       |
-| `.tasks/board.json`           | Generated: local board cache      |
-| `.tasks/issues.json`          | Generated: fetched GitHub issues  |
-| `.tasks/issues/<n>.md`        | Per-issue body cache for workers (not committed; `.tasks/` is gitignored) |
-| `TODO.md`                     | Generated: read-only task board   |
+| Path | Role |
+|---|---|
+| `.claude-plugin/plugin.json` | Plugin manifest |
+| `plugins/cmux-todo-board/bin/board-init` | Bash: create/normalize canonical labels |
+| `plugins/cmux-todo-board/bin/board-pull` | Bash: fetch issues via `gh` (--with-body for full body) |
+| `plugins/cmux-todo-board/bin/board-render` | Python: generate board.json + TODO.md |
+| `plugins/cmux-todo-board/bin/board-render-body` | Bash: on-demand full-body retrieval for a single issue |
+| `plugins/cmux-todo-board/bin/board-status` | Bash: compact board state for the orchestrator (counts + next ready) |
+| `plugins/cmux-todo-board/bin/board-next` | Bash: return next actionable task for a given status |
+| `plugins/cmux-todo-board/bin/orch-dispatch`, `plugins/cmux-todo-board/bin/orch-finish`, `plugins/cmux-todo-board/bin/orch-spawn`, `plugins/cmux-todo-board/bin/orch-status`, `plugins/cmux-todo-board/bin/orch-statusline`, `plugins/cmux-todo-board/bin/orch-tmux-spawn`, `plugins/cmux-todo-board/bin/orch-verify`, `plugins/cmux-todo-board/bin/orch-watch` | Orchestrator scripts for headless `pi` dispatch, standby, and verification |
+| `plugins/cmux-todo-board/skills/cmux-agent-workflows/SKILL.md` | Advanced headless-pi orchestration helpers |
+| `plugins/cmux-todo-board/skills/` | Skill definitions |
+| `hooks/hooks.json` | SessionStart board summary |
+| `plugins/cmux-todo-board/docs/state-model.md` | State mapping across representations |
+| `plugins/cmux-todo-board/docs/file-roles.md` | Roles of generated files |
+| `plugins/cmux-todo-board/docs/ORCHESTRATOR.md` | Full orchestrator operating rules (referenced by board-onboard-lite) |
+| `plugins/cmux-todo-board/tests/` | Self-contained render tests |
+| `.tasks/board.json` | Generated: local board cache |
+| `.tasks/issues.json` | Generated: fetched GitHub issues |
+| `.tasks/issues/<n>.md` | Per-issue body cache for workers (not committed; `.tasks/` is gitignored) |
+| `TODO.md` | Generated: read-only task board |

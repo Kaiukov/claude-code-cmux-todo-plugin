@@ -5,6 +5,9 @@ This project adheres to semantic versioning.
 
 ## [Unreleased]
 
+### Removed
+- Cut non-core commands (#151): `board-install`, `board-sync` (pull stays one-directional; status write-back is manual via `gh`), `board-model` registry CRUD (profiles + `board-config --get-profile` cover spawn selection), and `limit-monitor`. ~2.8k lines of code/tests/docs removed.
+
 ### Added
 - `worker-watch.sh`: liveness watchdog + waiter for headless `pi` workers — PID + session-jsonl heartbeat, hard timeout, and stall/hung detection; supersedes poll-wait/coms-net waiters (#151).
 

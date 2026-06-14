@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ORCH_SPAWN="${ORCH_SPAWN:-$DIR/orch-spawn}"
+
+usage() {
+  cat >&2 <<'EOF'
+usage: orch-dispatch --task-id <issue> --role <role>
+EOF
+}
+
+task_id=""
+role=""
+
+while (( $# > 0 )); do
+  case "$1" in
+    --task-id)
+      [[ $# -ge 2 ]] || { usage; exit 2; }
+      task_id="$2"
+      shift 2
+      ;;
+    --task-id=*)
+      task_id="${1#--task-id=}"
+      shift
+      ;;
+    --role)
+      [[ $# -ge 2 ]] || { usage; exit 2; }
+      role="$2"
+      shift 2
+      ;;
+    --role=*)
+      role="${1#--role=}"
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      usage
+      exit 2
+      ;;
+  esac
+done
+
+[[ -n "$task_id" && -n "$role" ]] || { usage; exit 2; }
+
+set +e
+spawn_output="$("$ORCH_SPAWN" --role "$role" --task-id "$task_id")"
+spawn_status=$?
+set -e
+(( spawn_status == 0 )) || exit "$spawn_status"
+
+run_file="$(printf '%s\n' "$spawn_output" | awk -F= '/^run_file=/{print $2; exit}')"
+session="$(printf '%s\n' "$spawn_output" | awk -F= '/^session=/{print $2; exit}')"
+
+[[ -n "$run_file" ]] || { echo "ERROR: orch-spawn did not emit run_file" >&2; exit 1; }
+run_id="$(basename "$run_file" .json)"
+
+printf 'dispatched run_id=%s session=%s role=%s issue=%s\n' "$run_id" "$session" "$role" "$task_id"

@@ -20,8 +20,8 @@ mirrors ready tasks into Claude's built-in task list for the current round.
 
 1. **Never start blocked or needs-info tasks.** Skip `blocked` and `needs-info` items.
 2. **One in_progress only.** Keep at most ONE task `in_progress` in the
-   orchestrator's built-in task list. Real parallelism is managed by cmux pane
-   state, not the task list.
+   orchestrator's built-in task list. Real parallelism is the count of live
+   headless `pi` worker processes, not the task list.
 3. **Status lives in GitHub labels.** When a round ends, the built-in task list
    disappears. Status is re-read from GitHub on the next `board-pull`.
 4. **Task list is a plan, not a database.** The built-in task list is for
@@ -37,4 +37,5 @@ mirrors ready tasks into Claude's built-in task list for the current round.
 2. **Read:** Review `TODO.md` or `board.json` to see all tasks.
 3. **Select:** Identify `ready` tasks that can be worked on this round.
 4. **Plan:** `/board-plan` mirrors `ready` tasks into Claude's built-in task list.
-5. **Dispatch:** `/board-run-ready` dispatches ready tasks to cmux panes.
+5. **Dispatch:** `/board-run-ready` dispatches ready tasks to headless `pi`
+   workers (cap: 2; parked 3×3 dashboard optional watch/intervene only).

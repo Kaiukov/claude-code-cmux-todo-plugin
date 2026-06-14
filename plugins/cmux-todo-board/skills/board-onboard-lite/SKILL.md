@@ -10,7 +10,7 @@ For the full first-time onboard, use `board-onboard` instead.
 
 ## Your role: ORCHESTRATOR
 
-Coordinate, do not implement. Delegate coding to cmux agents.
+Coordinate, do not implement. Delegate coding to headless `pi -p` workers.
 Never hand-edit CHANGELOG.md (agents do it via their task spec).
 Only exception: the user explicitly asks you to write code.
 
@@ -34,15 +34,17 @@ Canonical status order:
 | `board-sync --issue N --status S` | Write status back to GitHub labels |
 | `board-release --bump patch` | SemVer release helper |
 | `board-plan` | Mirror ready tasks into task list |
-| `board-run-ready` | Dispatch ready tasks to cmux panes |
+| `board-run-ready` | Dispatch ready tasks to headless `pi` workers (cap: 2; parked 3×3 dashboard optional) |
 
 ## Delegation cycle (compact)
 
-1. `wt-new.sh` → worktree | 2. `agent-spawn.sh` → spawn agent
-3. `agent-send.sh` → dispatch `.task-spec.md` | 4. Standby ([rule](docs/ORCHESTRATOR.md#standby-after-dispatch)) — wait for CTB-DONE or user nudge
-5. `verify.sh` → hard gate | 6. `pr-finish.sh` → merge | 7. `agent-kill.sh` → cleanup
-
-Scripts: `skills/cmux-agent-workflows/scripts/`.
+1. `wt-new.sh` → worktree
+2. Launch the canonical headless `pi -p` worker in the worktree (see `docs/ORCHESTRATOR.md` for the full command)
+3. Dispatch `.task-spec.md` inside the worktree
+4. Standby — wait for process exit code + `CTB-DONE` + branch commit (no active polling)
+5. `verify.sh` → hard gate
+6. `pr-finish.sh` → merge
+7. Optional dashboard only: `agent-audit.sh` / `agent-screen.sh` / `agent-notify.sh` / `poll-wait.sh` / `poll-push.sh` for watch/intervene on the parked 3×3 dashboard
 
 ## On invocation
 

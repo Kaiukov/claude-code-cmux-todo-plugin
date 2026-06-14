@@ -8,7 +8,7 @@ Default working language: EN. Board generates issues/docs in EN unless overridde
 
 **Coordinate — do not implement.**
 
-- **Delegate ALL coding to cmux agents.** No code, tests, config, or JSON edits. Orchestrator keeps only: orchestration (plan/dispatch/track), independent verification (hard gate), live/prod ops.
+- **Delegate ALL coding to headless `pi` workers.** No code, tests, config, or JSON edits. Orchestrator keeps only: orchestration (plan/dispatch/track), independent verification (hard gate), live/prod ops.
   **Exception:** write code only when user explicitly asks. Otherwise always delegate; hand-edit without request = violation.
   **Task classification:**
   - **Strategic** (architecture, planning, review, hard-gate verify) → keep.
@@ -19,7 +19,7 @@ Default working language: EN. Board generates issues/docs in EN unless overridde
 - **Hard gate (never merge on agent self-report):** run tests + `claude plugin validate .` / typecheck before merging. Mocks pass while live breaks — always real check.
 - **Never hand-edit CHANGELOG.md.** Delegating agent's responsibility via `## CHANGELOG` in task spec.
 - **Live deploys / DB / KV mutations = orchestrator-only.** Agents unit-test on mocks; real deploy/migration/`--remote` write done by you with explicit user confirmation each time.
-- **One `in_progress` only.** Keep ≤1 `in_progress` in built-in task list. Real parallelism tracked by cmux pane state.
+- **One `in_progress` only.** Keep ≤1 `in_progress` in built-in task list. Real parallelism tracked by the count of live background worker processes.
 
 ## Token efficiency
 
@@ -48,22 +48,27 @@ Never start `blocked`/`needs-info` without explicit user action.
 | 1 | `/board-init --repo owner/repo` | Once: create 7 canonical status labels (writes to GitHub). |
 | 2 | `/board-pull --repo owner/repo` | Issues → `./.tasks/board.json` + `./TODO.md`. |
 | 3 | `/board-plan` | Mirror `ready` items into built-in task list. |
-| 4 | `/board-run-ready` | Dispatch `ready` → cmux panes (cap: 2 active). |
+| 4 | `/board-run-ready` | Dispatch `ready` → headless `pi` workers (cap: 2 active). |
 
 `board-pull` is one-directional (GitHub → local). Sync-back via `board-sync --issue N --status STATUS --repo owner/repo`.
 
-## cmux delegation cycle {#delegation-cycle}
+## headless delegation cycle {#delegation-cycle}
 
 For each task you execute:
 
 1. **Worktree** off `origin/main` (sibling dir, carries `.env`).
-2. **Spawn** agent (opencode/codex) in worktree.
-3. **Dispatch** task spec — MUST live inside agent worktree (`<worktree>/.task-spec.md`), never `/tmp`/external dirs, to avoid permission prompts. Use compact format (below).
-4. **Standby after dispatch.** See [standby rule](#standby-after-dispatch). Wait for completion signal or user nudge — do not actively poll the agent pane.
-5. **Verify independently** — hard gate: run tests + validation. Do not trust agent's word.
+2. **Launch** the worker as a headless background `pi -p` process in the worktree:
+   ```bash
+   cd <worktree> && pi -p --mode json -a \
+     --provider <p> --model <m> --tools <...> \
+     --append-system-prompt prompts/pi/roles/<role>.md @<worktree>/.task-spec.md > out.json 2>&1 &
+   ```
+3. **Dispatch** task spec — MUST live inside the worker worktree (`<worktree>/.task-spec.md`), never `/tmp`/external dirs, to avoid permission prompts. Use compact format (below).
+4. **Standby after dispatch.** Wait for the worker process exit-code callback, the `CTB-DONE` sentinel in output, and the worker's branch commit. Do not actively poll, screen-scrape, or type into any dashboard surface.
+5. **Verify independently** — hard gate: run tests + validation. Do not trust the worker's word.
 6. **Live-check** real resources (deploy / `--remote` / migration) yourself.
-7. **Merge** (squash) + clean up worktree, branch, agent pane. `pr-finish.sh` prompts `Merge PR #N? (y/N)` and only proceeds on explicit `y`/`yes`; the non-interactive default is safe (no merge). The orchestrator must not bypass or automate this prompt — the user must type the confirmation.
-8. **Audit panes** — run `agent-audit.sh` (dry-run first, then `--apply`) to reclaim idle/finished surfaces. After `pr-finish.sh` and at round end.
+7. **Merge** (squash) + clean up worktree, branch, and any optional dashboard surfaces. `pr-finish.sh` prompts `Merge PR #N? (y/N)` and only proceeds on explicit `y`/`yes`; the non-interactive default is safe (no merge). The orchestrator must not bypass or automate this prompt — the user must type the confirmation.
+8. **Optional dashboard cleanup** — if you are using the parked live dashboard, run `agent-audit.sh` (dry-run first, then `--apply`) to reclaim idle/finished surfaces. This is watch/intervene only, not the default path, and only after `pr-finish.sh` and at round end.
 
 ### Task spec format (`.task-spec.md`)
 
@@ -92,25 +97,19 @@ GitHub: <url>
 ### cmux-agent-workflows scripts
 
 `skills/cmux-agent-workflows/scripts/`:
+- **Primary worker launch:** headless `pi -p --mode json -a ...` in the worktree (per-run trust; not a pane script)
 - `wt-new.sh` — worktree off `origin/main`
-- `agent-spawn.sh` — spawn agent (model via `--profile <name>` or raw model id)
-- `agent-send.sh` — send task spec
-- `poll-wait.sh` — event-driven + poll fallback (background)
-- `poll-push.sh` — git poll fallback (internal to poll-wait.sh)
 - `verify.sh` / `verify-ts.sh` — hard gate
 - `pr-finish.sh` — merge + cleanup
-- `agent-kill.sh` — tear down pane
-- `agent-audit.sh` — audit panes, reclaim idle/finished surfaces (dry-run default; `--apply` to close)
-- `agent-notify.sh` — emit CTB-DONE payload
+- `agent-spawn.sh`, `agent-send.sh`, `agent-screen.sh`, `agent-kill.sh`, `agent-audit.sh`, `agent-notify.sh`, `poll-wait.sh`, `poll-push.sh` — legacy/optional-dashboard only (parked live-dashboard / intervene helpers; not default path)
 
 ## Standby after dispatch {#standby-after-dispatch}
 
-After dispatching an agent into a cmux pane, the orchestrator MUST enter standby mode:
+After dispatching a headless background worker, the orchestrator MUST enter standby mode:
 
-- **Do not screen-scrape the pane.** `agent-screen.sh`, `agent-send.sh` with read flags, and similar progress checks are prohibited while the agent is working.
-- **Wait on the event stream in the background.** `poll-wait.sh` is the primary waiter; it listens to `cmux events --category agent --category notification` and resolves on either an agent idle/Stop event or a `CTB-DONE` notification. `poll-push.sh` is only the fallback if the event path is missed.
-- **Read once after a signal.** After `poll-wait.sh` or an explicit user nudge says the agent is done, a single `agent-screen.sh <surface> <N>` call (≤40 lines) is allowed to read the final report.
-- **Do not type into a working agent pane.** `agent-send.sh` MUST NOT be called against an active agent surface until the agent has completed or the user explicitly instructs intervention.
+- **Wait for the process, not a pane.** Standby means the worker process exit code callback, the `CTB-DONE` sentinel in output, and the worker's branch commit.
+- **No active polling in the default path.** `agent-screen.sh`, `poll-wait.sh`, `poll-push.sh`, and similar progress checks are parked dashboard helpers only.
+- **Do not type into the parked dashboard.** If you are using cmux for watch/intervene, only inspect or intervene after completion signal or explicit user instruction.
 
 ## On invocation
 

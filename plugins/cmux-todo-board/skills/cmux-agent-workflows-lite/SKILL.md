@@ -1,41 +1,26 @@
 ---
 name: cmux-agent-workflows-lite
-description: Default delegation reference — compact delegation cycle, script table, and model profiles for routine sessions. For advanced topics (backends, hooks install, codex gotchas, live-deploy traps), use cmux-agent-workflows.
+description: Default delegation reference — compact delegation cycle, script table, and model profiles for routine sessions. For advanced topics (backends, hooks install, live-deploy traps), use cmux-agent-workflows.
 ---
 
 # cmux-agent-workflows-lite
 
 **Full reference:** `skills/cmux-agent-workflows/SKILL.md` (backends, hooks install, live-deploy traps, codex gotchas).
 
-## Scripts (`skills/cmux-agent-workflows/scripts/`)
+## Default dispatch
 
-| Script | Purpose |
-|--------|---------|
-| `wt-new.sh` | New worktree from origin/main + .env + bun install |
-| `agent-spawn.sh` | Split pane, boot agent, wait ready, echo surface ref |
-| `agent-send.sh` | Send prompt + Enter to agent surface |
-| `agent-screen.sh` | Read agent surface screen |
-| `agent-kill.sh` | Kill agent proc by tty, optionally close split |
-| `agent-notify.sh` | Agent final step: emit CTB-DONE payload |
-| `poll-wait.sh` | PRIMARY wait: cmux events + git-poll fallback |
-| `poll-push.sh` | FALLBACK git-poll: polls origin until branch pushed |
-| `verify.sh` | Project-agnostic gate (bash -n + test) |
-| `verify-ts.sh` | TS hard gate (typecheck + bun test) |
-| `pr-finish.sh` | Remove worktree, squash-merge, delete branch |
-| `agent-audit.sh` | Audit agent session logs |
-| `lib.sh` | Shared helpers (sourced by others) |
-
-## Standard delegation cycle
+The primary flow is headless `pi -p` background workers. The parked 3×3 cmux dashboard is optional watch/intervene only.
 
 ```bash
 S=skills/cmux-agent-workflows/scripts
 WT=$($S/wt-new.sh feat/foo ../wt-feat-foo)          # 1. worktree
-SURF=$($S/agent-spawn.sh right "$WT" <model> TASK)  # 2. spawn agent
-$S/agent-send.sh "$SURF" < dispatch-prompt.txt      # 3. dispatch
-$S/poll-wait.sh --surface "$SURF" --branch feat/foo # 4. wait
-$S/verify.sh "$WT"                                   # 5. gate
-$S/pr-finish.sh 42 "$WT"                             # 6. merge
-$S/agent-kill.sh "$SURF" --agent pi --close    # 7. cleanup
+cd "$WT" && pi -p --mode json -a \
+  --provider <p> --model <m> --tools <...> \
+  --append-system-prompt prompts/pi/roles/<role>.md @"$WT"/.task-spec.md > out.json 2>&1 &
+# 2. headless worker (completion = exit code + CTB-DONE + branch commit)
+$S/verify.sh "$WT"                                  # 3. gate
+$S/pr-finish.sh 42 "$WT"                            # 4. merge
+# 5. optional dashboard only: agent-audit.sh / agent-screen.sh / agent-notify.sh / poll-wait.sh / poll-push.sh
 ```
 
-Model profiles: `backend`, `backend-fast`, `repo-scout`, `docs`, `test`, `tiny-patch`, `review`, `frontend`, `frontend-top` — resolved via `board-config --get-profile <name)`.
+Model profiles: `backend`, `backend-fast`, `repo-scout`, `docs`, `test`, `tiny-patch`, `review`, `frontend`, `frontend-top` — resolved via `board-config --get-profile <name>`.

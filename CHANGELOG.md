@@ -5,6 +5,9 @@ This project adheres to semantic versioning.
 
 ## [Unreleased]
 
+### Changed
+- Orchestrator now dispatches workers as headless `pi -p` background processes (exit-code callback + CTB-DONE sentinel + branch commit) instead of cmux panes; cmux 3×3 cockpit demoted to an optional parked dashboard (#151).
+
 ## [0.8.0] - 2026-06-13
 
 ### Changed

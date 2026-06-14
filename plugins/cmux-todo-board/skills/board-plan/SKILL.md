@@ -38,5 +38,5 @@ entries in Claude's built-in task list for the current round.
 
 ## After running
 
-Use `/board-run-ready` to dispatch ready tasks to cmux panes for parallel
-execution.
+Use `/board-run-ready` to dispatch ready tasks to headless `pi` workers for
+parallel execution (parked 3×3 dashboard optional watch/intervene only).

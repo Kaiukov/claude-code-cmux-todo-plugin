@@ -1,12 +1,12 @@
 ---
 name: cmux-dev-grid
-description: Initialize and manage a 3×3 cmux development cockpit with a dedicated orchestrator pane and 8 reusable worker slots. Use for cockpit setup and status checks.
+description: Initialize and manage an optional parked 3×3 cmux dashboard with a dedicated orchestrator surface and 8 reusable watch/intervene slots. Use for dashboard setup and status checks only.
 ---
 
-# cmux-dev-grid — 3×3 cmux cockpit
+# cmux-dev-grid — parked 3×3 dashboard
 
-Initializes a **3×3 cmux development cockpit** with a dedicated orchestrator
-pane in the center and eight reusable worker slots around it.
+Initializes an optional **3×3 cmux dashboard** with a dedicated orchestrator
+surface in the center and eight reusable watch/intervene slots around it.
 
 ```
 ┌──────────┬──────────┬──────────┐
@@ -34,7 +34,7 @@ cmux-dev-grid verify
 ## Cockpit-aware agent spawning
 
 Once the cockpit is initialized, spawn agents directly into named slots
-instead of creating new panes:
+instead of creating new dashboard surfaces:
 
 ```bash
 # Spawn into a specific slot
@@ -44,14 +44,14 @@ agent-spawn.sh --slot worker-3 /path/to/worktree --profile backend 113
 agent-spawn.sh --slot auto /path/to/worktree --profile backend 113
 ```
 
-Without `--slot`, agent-spawn.sh behaves as before (creates a new pane via
-balanced-grid split).
+Without `--slot`, agent-spawn.sh behaves as before (creates a new dashboard
+surface via balanced-grid split).
 
 ## How it works
 
-1. **`init`** — inspects the cmux tree, identifies the orchestrator pane
-   (surface titled "Orchestrator"), maps the remaining panes to `worker-1`
-   through `worker-8` by pane creation order, renames tabs, and persists the
+1. **`init`** — inspects the cmux tree, identifies the orchestrator surface
+   (titled "Orchestrator"), maps the remaining surfaces to `worker-1`
+   through `worker-8` by creation order, renames tabs, and persists the
    mapping to `.tasks/cockpit.json`.
 
 2. **`status`** — reads `.tasks/cockpit.json` and prints the grid layout
@@ -60,7 +60,7 @@ balanced-grid split).
 3. **`verify`** — checks that every slot in cockpit.json still has a live
    surface in the cmux tree. Exits non-zero on mismatch.
 
-The orchestrator pane is detected by its title ("Orchestrator") in the
+The orchestrator surface is detected by its title ("Orchestrator") in the
 current workspace. It is excluded from worker slots and never used as a
 spawn target.
 

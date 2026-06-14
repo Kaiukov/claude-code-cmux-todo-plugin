@@ -1,17 +1,16 @@
 ---
 name: board-run-ready
-description: Dispatch ready tasks into cmux panes for parallel execution.
+description: Dispatch ready tasks into headless pi workers for parallel execution.
 ---
 
 # board-run-ready
 
-Dispatches ready tasks from `.tasks/board.json` into cmux panes for parallel
-agent execution.
+Dispatches ready tasks from `.tasks/board.json` into headless `pi -p` background workers for parallel agent execution. The parked 3×3 cmux cockpit is optional watch/intervene only.
 
 ## Prerequisites
 
 - `.tasks/board.json` exists — run `/board-pull` first.
-- `cmux` on PATH. Falls back to listing tasks if not available.
+- `pi` on PATH. The cmux dashboard helpers are optional and not part of the default path.
 
 ## Pick work
 
@@ -21,18 +20,17 @@ Use compact helpers, not a full board read:
 
 ## Concurrency
 
-- Cap: 2 active cmux panes.
+- Cap: 2 active background workers.
 - At most ONE task `in_progress` in the built-in task list.
-- Cmux pane state is the real tracker; other dispatched tasks stay `pending`.
+- Live worker process count is the real tracker; other dispatched tasks stay `pending`.
 
 ## Dispatch
 
-For the routine delegation workflow (worktree → spawn → dispatch → wait), see
-`cmux-agent-workflows-lite`. The sections below cover the run-ready–specific dispatch flow.
+For the routine delegation workflow (worktree → headless `pi -p` spawn → dispatch → standby), see `cmux-agent-workflows-lite`. The sections below cover the run-ready–specific dispatch flow.
 
 ### Step 0: Generate `.task-spec.md`
 
-Before spawning an agent, generate a maximally detailed `.task-spec.md` inside the agent
+Before spawning a worker, generate a maximally detailed `.task-spec.md` inside the worker
 worktree (`<worktree>/.task-spec.md`). Never place it in `/tmp` or external
 directories. Fill every placeholder (`<...>`) with task-specific values:
 
@@ -84,7 +82,7 @@ All five sections (`Scope` with boundaries, `Files`, `Verification`, `Commit ins
 
 ### Steps 1–8
 
-See the [canonical delegation cycle in `docs/ORCHESTRATOR.md`](../../docs/ORCHESTRATOR.md#cmux-delegation-cycle). The scripts at `skills/cmux-agent-workflows/scripts/` map one-to-one to the steps there. Only the procedural loop is shared — all board-run-ready–specific constraints (below) still apply.
+See the [canonical delegation cycle in `docs/ORCHESTRATOR.md`](../../docs/ORCHESTRATOR.md#headless-delegation-cycle). The scripts at `skills/cmux-agent-workflows/scripts/` map one-to-one to the steps there. Only the procedural loop is shared — all board-run-ready–specific constraints (below) still apply.
 
 ## Merge gate (user confirmation)
 
@@ -97,17 +95,13 @@ Never trust an agent's self-report. Run the project's tests **and**
 
 ## Completion notification flow
 
-- **PRIMARY:** `agent-notify.sh` — the work prompt MUST instruct the agent to
-  call this as its final step (success or failure). Emits a `CTB-DONE` payload
-  via `cmux notify` (if on PATH) or stdout. The payload carries: task id,
-  surface ref, status (success|failure), and branch name if pushed.
-- **FALLBACK:** `poll-push.sh` (branch polling). A missed event never strands
-  a task; the fallback catches completions the signal missed.
+- **PRIMARY:** completion is the worker process exit code plus the `CTB-DONE` sentinel in output and the worker's branch commit.
+- **OPTIONAL dashboard only:** `agent-screen.sh`, `agent-audit.sh`, `agent-notify.sh`, `poll-wait.sh`, and `poll-push.sh` are for the parked live-dashboard flow, not the default headless path.
+- A missed dashboard signal never strands a task; the parked dashboard helpers are purely for watch/intervene.
 
 ## Standby after dispatch
 
-After dispatching, enter standby — do not read or type into the agent pane.
-See the [canonical standby rule in `docs/ORCHESTRATOR.md`](../../docs/ORCHESTRATOR.md#standby-after-dispatch).
+After dispatching, wait on the worker process exit-code callback, the `CTB-DONE` sentinel, and the branch commit. No active polling in the default path.
 
 ## MVP note
 

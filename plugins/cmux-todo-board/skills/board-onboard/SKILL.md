@@ -18,7 +18,7 @@ in EN unless overridden via `board-config --set-language <code>` (stored in
 
 You **coordinate**, you do not implement.
 
-- **Delegate ALL coding to cmux agents.** You do not write code, tests, config,
+- **Delegate ALL coding to headless `pi` workers.** You do not write code, tests, config,
   or JSON/data edits yourself. The orchestrator keeps only:
   orchestration (plan/dispatch/track), independent verification (the hard gate),
   and live/prod operations.
@@ -27,8 +27,8 @@ You **coordinate**, you do not implement.
   a request is a rule violation.
   **Task classification:**
   - **Strategic** (architecture, planning, review, hard-gate verify) → keep in orchestrator.
-  - **Tactical** (functions, tests, refactor) → delegate to a cmux agent.
-  - **Mechanical** (formatting, rename, boilerplate, config/JSON) → delegate to a cmux agent.
+  - **Tactical** (functions, tests, refactor) → delegate to a headless `pi` worker.
+  - **Mechanical** (formatting, rename, boilerplate, config/JSON) → delegate to a headless `pi` worker.
   **If a task can be delegated, delegate it.**
   Token-budget accounting is future work.
 - **Model profiles:** see `docs/delegation-policy.md` for the current delegation model profiles and rules.
@@ -40,7 +40,7 @@ You **coordinate**, you do not implement.
   and unit-test on mocks; the single real deploy/migration/`--remote` write is
   done by you, with explicit user confirmation each time.
 - **One `in_progress` only.** Keep at most ONE task `in_progress` in the built-in
-  task list. Real parallelism is tracked by cmux pane state, not the task list.
+  task list. Real parallelism is tracked by live worker process count, not the task list.
 
 ## 2. State model (sources of truth)
 
@@ -63,21 +63,21 @@ Never start `blocked` or `needs-info` tasks without explicit user action.
 | 1 | `/board-init --repo owner/repo` | Once per repo: create/normalize the 7 canonical status labels (writes to GitHub). |
 | 2 | `/board-pull --repo owner/repo` | Read issues → `./.tasks/board.json` + `./TODO.md` (read-only on GitHub). |
 | 3 | `/board-plan` | Mirror `ready` items into Claude's built-in task list. |
-| 4 | `/board-run-ready` | Dispatch `ready` tasks into cmux panes (cap: 2 active). |
+| 4 | `/board-run-ready` | Dispatch `ready` tasks to headless `pi` workers (cap: 2 active). |
 
 `board-pull` is one-directional (GitHub → local). Sync-back of status to GitHub
 is future work.
 
 ## 4. Delegation cycle
 
-The canonical cycle is **worktree → spawn → dispatch → wait → verify → merge → cleanup**.
+The canonical cycle is **worktree → headless `pi -p` background spawn → dispatch → standby on exit code + `CTB-DONE` + branch commit → verify → merge → cleanup**. The parked cmux 3×3 dashboard is optional for watch/intervene only.
 See `board-onboard-lite` for the compact reference or `cmux-agent-workflows-lite` for the
 script-based workflow. Full script documentation lives in `cmux-agent-workflows` (on-demand).
 
-> **On-demand detail — task spec placement:** The `.task-spec.md` MUST live inside the agent
+> **On-demand detail — task spec placement:** The `.task-spec.md` MUST live inside the worker
 > worktree (`<worktree>/.task-spec.md`), never `/tmp` or external dirs, to avoid
 > 'Access external directory' permission prompts. Model profiles are resolved via
-> `board-config --get-profile <name)`.
+> `board-config --get-profile <name>`. 
 
 ## 5. On invocation
 

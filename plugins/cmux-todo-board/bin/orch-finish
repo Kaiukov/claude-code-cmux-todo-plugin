@@ -6,11 +6,13 @@ FINISH_SCRIPT="${ORCH_FINISH_SCRIPT:-$DIR/../skills/cmux-agent-workflows/scripts
 
 usage() {
   cat >&2 <<'EOF'
-usage: orch-finish <pr-number> [worktree-path]
+usage: orch-finish [--merge] <pr-number> [worktree-path]
+  default: local finish (no merge)
+  --merge: user-gated squash-merge
 EOF
 }
 
-[[ $# -ge 1 && $# -le 2 ]] || { usage; exit 2; }
+[[ $# -ge 1 && $# -le 3 ]] || { usage; exit 2; }
 [[ -x "$FINISH_SCRIPT" ]] || { echo "ERROR: missing finish script at $FINISH_SCRIPT" >&2; exit 1; }
 
 exec "$FINISH_SCRIPT" "$@"

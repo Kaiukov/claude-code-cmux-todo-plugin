@@ -105,6 +105,12 @@ fi
 [[ -n "$ROLE_OVERRIDE" ]] && ROLE="$ROLE_OVERRIDE"
 
 PROMPTS_DIR="$DIR/../../../prompts/pi"
+COMMON_SYSTEM_PROMPT="$PROMPTS_DIR/common-system.md"
+ROLE_PROMPT="$PROMPTS_DIR/roles/$ROLE.md"
+WORKER_CONTRACT_PROMPT="$PROMPTS_DIR/worker-contract.md"
+[[ -f "$COMMON_SYSTEM_PROMPT" ]] || die "prompt not found: $COMMON_SYSTEM_PROMPT"
+[[ -f "$ROLE_PROMPT" ]] || die "role prompt not found: $ROLE_PROMPT (role='$ROLE')"
+[[ -f "$WORKER_CONTRACT_PROMPT" ]] || die "prompt not found: $WORKER_CONTRACT_PROMPT"
 log "launching headless pi worker"
 log "provider=$PROVIDER model=$MODEL thinking=$THINKING tools=$TOOLS role=$ROLE label=${LABEL:-}"
 
@@ -112,9 +118,9 @@ pid="$({
   cd "$WT"
   nohup pi -p --mode json -a \
     --provider "$PROVIDER" --model "$MODEL" --thinking "$THINKING" --tools "$TOOLS" \
-    --append-system-prompt "$PROMPTS_DIR/common-system.md" \
-    --append-system-prompt "$PROMPTS_DIR/roles/$ROLE.md" \
-    --append-system-prompt "$PROMPTS_DIR/worker-contract.md" \
+    --append-system-prompt "$COMMON_SYSTEM_PROMPT" \
+    --append-system-prompt "$ROLE_PROMPT" \
+    --append-system-prompt "$WORKER_CONTRACT_PROMPT" \
     "@$WT/.task-spec.md" > "$WT/out.json" 2>&1 &
   echo $!
 })"

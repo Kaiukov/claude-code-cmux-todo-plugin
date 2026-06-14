@@ -9,7 +9,8 @@ fail() { echo "FAIL: $1"; FAIL=$((FAIL+1)); }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROMPTS_DIR="$SCRIPT_DIR/../prompts/pi"
-SPAWN_SCRIPT="$SCRIPT_DIR/../skills/cmux-agent-workflows/scripts/agent-spawn.sh"
+SPAWN_SCRIPT="$SCRIPT_DIR/../skills/cmux-agent-workflows/scripts/worker-spawn.sh"
+ORCH_CONFIG="$SCRIPT_DIR/../bin/orch-config"
 
 # ─── Asset existence and non-empty ─────────────────────────────────────
 ASSETS=(
@@ -18,6 +19,8 @@ ASSETS=(
   "$PROMPTS_DIR/roles/frontend.md"
   "$PROMPTS_DIR/roles/frontend-top.md"
   "$PROMPTS_DIR/roles/review.md"
+  "$PROMPTS_DIR/roles/reviewer.md"
+  "$PROMPTS_DIR/roles/repo-scout.md"
   "$PROMPTS_DIR/roles/docs.md"
 )
 
@@ -63,48 +66,44 @@ else
   fail "review.md missing read-only wording"
 fi
 
-# ─── agent-spawn.sh wires --append-system-prompt for pi kind ───────────
+# ─── worker-spawn.sh wires --append-system-prompt for pi workers ──────
 if [[ -f "$SPAWN_SCRIPT" ]]; then
   SPAWN_CONTENT=$(<"$SPAWN_SCRIPT")
 
-  # Check the guard markers exist
-  if echo "$SPAWN_CONTENT" | grep -qF '# --- #118 prompt layering ---'; then
-    pass "agent-spawn.sh has #118 start marker"
-  else
-    fail "agent-spawn.sh missing #118 start marker"
-  fi
-  if echo "$SPAWN_CONTENT" | grep -qF '# --- end #118 ---'; then
-    pass "agent-spawn.sh has #118 end marker"
-  else
-    fail "agent-spawn.sh missing #118 end marker"
-  fi
-
-  # Check --append-system-prompt for common-system.md
   if echo "$SPAWN_CONTENT" | grep -qF -- '--append-system-prompt' && \
      echo "$SPAWN_CONTENT" | grep -qF 'common-system.md'; then
-    pass "agent-spawn.sh appends common-system.md via --append-system-prompt"
+    pass "worker-spawn.sh appends common-system.md via --append-system-prompt"
   else
-    fail "agent-spawn.sh missing --append-system-prompt for common-system.md"
+    fail "worker-spawn.sh missing --append-system-prompt for common-system.md"
   fi
 
-  # Check --append-system-prompt for a role file
   if echo "$SPAWN_CONTENT" | grep -qF -- '--append-system-prompt' && \
      echo "$SPAWN_CONTENT" | grep -qF 'roles/'; then
-    pass "agent-spawn.sh appends role file via --append-system-prompt"
+    pass "worker-spawn.sh appends role file via --append-system-prompt"
   else
-    fail "agent-spawn.sh missing --append-system-prompt for role file"
+    fail "worker-spawn.sh missing --append-system-prompt for role file"
   fi
 
-  # Check the block is guarded for pi kind
-  if echo "$SPAWN_CONTENT" | grep -qF 'AGENT_KIND' && \
-     echo "$SPAWN_CONTENT" | grep -qF '"pi"'; then
-    pass "agent-spawn.sh #118 block guarded for pi kind"
+  if echo "$SPAWN_CONTENT" | grep -qF 'ROLE_PROMPT' && \
+     echo "$SPAWN_CONTENT" | grep -qF 'role prompt not found'; then
+    pass "worker-spawn.sh guards missing role prompt"
   else
-    fail "agent-spawn.sh #118 block not guarded for pi kind"
+    fail "worker-spawn.sh missing role prompt guard"
   fi
 else
-  fail "agent-spawn.sh not found at $SPAWN_SCRIPT"
+  fail "worker-spawn.sh not found at $SPAWN_SCRIPT"
 fi
+
+# ─── #159 role-to-prompt mapping ──────────────────────────────────────
+while IFS= read -r profile; do
+  [[ -n "$profile" ]] || continue
+  role_file="$PROMPTS_DIR/roles/$profile.md"
+  if [[ -f "$role_file" ]]; then
+    pass "role prompt exists for profile: $profile"
+  else
+    fail "role prompt missing for profile: $profile ($role_file)"
+  fi
+done < <("$ORCH_CONFIG" --list-profiles)
 
 # ─── Summary ───────────────────────────────────────────────────────────
 echo "---"

@@ -101,14 +101,20 @@ GitHub: <url>
 - `wt-new.sh` — worktree off `origin/main`
 - `verify.sh` / `verify-ts.sh` — hard gate
 - `pr-finish.sh` — merge + cleanup
-- `agent-spawn.sh`, `agent-send.sh`, `agent-screen.sh`, `agent-kill.sh`, `agent-audit.sh`, `agent-notify.sh`, `poll-wait.sh`, `poll-push.sh` — legacy/optional-dashboard only (parked live-dashboard / intervene helpers; not default path)
+- `worker-watch.sh` — canonical waiter / liveness watchdog for headless `pi` workers (PID + session-jsonl heartbeat; hard timeout + stall kill)
+- `agent-spawn.sh`, `agent-send.sh`, `agent-screen.sh`, `agent-kill.sh`, `agent-audit.sh`, `agent-notify.sh`, `coms-net-await.sh`, `poll-wait.sh`, `poll-push.sh` — legacy/optional-dashboard only (superseded by `worker-watch.sh`; parked live-dashboard / intervene helpers; not default path)
 
 ## Standby after dispatch {#standby-after-dispatch}
 
 After dispatching a headless background worker, the orchestrator MUST enter standby mode:
 
-- **Wait for the process, not a pane.** Standby means the worker process exit code callback, the `CTB-DONE` sentinel in output, and the worker's branch commit.
-- **No active polling in the default path.** `agent-screen.sh`, `poll-wait.sh`, `poll-push.sh`, and similar progress checks are parked dashboard helpers only.
+- **Use `worker-watch.sh` as the canonical waiter.** It watches the worker PID plus the pi session-jsonl heartbeat (`~/.pi/agent/sessions/-<slug>--/*.jsonl`; fallback: newest `*.jsonl` under `~/.pi/agent/sessions` written after the watcher starts). stdout is not a heartbeat.
+  - `WORKING`: PID alive and heartbeat fresh (poll line on stderr).
+  - `HUNG → killed`: heartbeat age ≥ stall threshold; watchdog `kill`s the PID, prints `STATUS=KILLED_STALLED`, exits 125.
+  - `CRASHED`: PID exits without `EXIT=0` or `CTB-DONE`; prints the last 8 lines of the out file, exits 1.
+  - `DONE`: PID exits with `EXIT=0` or `CTB-DONE`; prints `STATUS=DONE`, exits 0.
+  - Hard timeout: elapsed ≥ max; watchdog `kill`s the PID, prints `STATUS=KILLED_TIMEOUT`, exits 124.
+- **No active polling in the default path.** `worker-watch.sh` is the canonical waiter for headless `pi` workers; `agent-screen.sh`, `poll-wait.sh`, `poll-push.sh`, and `coms-net-await.sh` are legacy dashboard helpers only.
 - **Do not type into the parked dashboard.** If you are using cmux for watch/intervene, only inspect or intervene after completion signal or explicit user instruction.
 
 ## On invocation

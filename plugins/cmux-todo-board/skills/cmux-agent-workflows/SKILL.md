@@ -42,8 +42,9 @@ cd <worktree> && pi -p --mode json -a \
 | `agent-screen.sh <surface> [lines]` | Legacy / optional-dashboard screen read | `agent-screen.sh surface:172 30` |
 | `agent-kill.sh <surface> [--agent pi] [--close]` | Legacy / optional-dashboard cleanup helper | `agent-kill.sh surface:172 --agent pi --close` |
 | `agent-notify.sh --task <id> --surface <ref> --status success\|failure [--branch <b>]` | Legacy / optional-dashboard CTB-DONE helper | `agent-notify.sh --task 32 --surface surface:172 --status success --branch feat/foo` |
-| `poll-wait.sh --surface <ref> --branch <name> [--task <id>] [--event-timeout <s>] [--total-timeout <s>]` | Legacy / optional-dashboard waiter | `poll-wait.sh --surface surface:172 --branch feat/foo --task 44 --total-timeout 600` |
-| `poll-push.sh <branch> [int] [timeout]` | Legacy / optional-dashboard git-poll fallback | `poll-push.sh feat/foo 30 1800` |
+| `worker-watch.sh --pid <PID> --out <outfile> [--worktree <dir>] [--max <s>] [--stall <s>] [--interval <s>]` | Canonical waiter / liveness watchdog for headless `pi` workers (PID + session-jsonl heartbeat; hard timeout + stall kill) | `worker-watch.sh --pid $PID --out out.json --worktree $WT` |
+| `poll-wait.sh --surface <ref> --branch <name> [--task <id>] [--event-timeout <s>] [--total-timeout <s>]` | Legacy / optional-dashboard waiter (superseded by `worker-watch.sh`) | `poll-wait.sh --surface surface:172 --branch feat/foo --task 44 --total-timeout 600` |
+| `poll-push.sh <branch> [int] [timeout]` | Legacy / optional-dashboard git-poll fallback (superseded by `worker-watch.sh`) | `poll-push.sh feat/foo 30 1800` |
 
 `lib.sh` is shared (sourced by the others): `cmux_surfaces`, `cmux_tty`,
 `pick_band` (random rock-band name excluding live tabs), and the

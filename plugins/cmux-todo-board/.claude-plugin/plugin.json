@@ -1,7 +1,7 @@
 {
   "name": "cmux-todo-board",
   "description": "Bridge GitHub Issues into a local board (board.json/TODO.md), mirror ready tasks into Claude's built-in task list, and dispatch work to headless pi workers via the V1 tmux/GitHub-first orchestrator.",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "author": {
     "name": "Kaiukov"
   }

@@ -5,6 +5,18 @@ This project adheres to semantic versioning.
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-06-15
+
+### Fixed
+- Role→prompt mapping (#159): added `prompts/pi/roles/repo-scout.md` and `reviewer.md` (read-only recon/review prompts) so `orch-config` roles resolve to real assets; `worker-spawn.sh` now hard-fails on a missing role/contract prompt instead of silently launching a worker with no role. `test_pi_prompt_assets.sh` asserts every `orch-config` profile resolves an existing `roles/<role>.md`.
+- Merge gate (#160): `pr-finish.sh`/`orch-finish` default to a LOCAL finish (worktree cleanup, no `gh pr merge`); merging is gated behind an explicit `--merge` flag with a y/N confirm. New `test_pr_finish_merge_gate.sh` proves the local path never merges.
+- Stale-heartbeat instant-kill (#156): `worker-watch.sh` bounds `heartbeat_mtime` by `WATCH_START`, so a stale session jsonl can no longer trip the stall timeout at t+0.
+- Read-only completion mode (#161): `worker-watch.sh` gains `--read-only` (completion = non-empty `out.json`, no commit required); `orch-tmux-runner.sh` derives read-only from the worker's tool set (no `edit`/`write`).
+- README (#162): reflects the headless `pi` runtime; dropped board-sync/cmux-panes/limit-monitor references, added the `orchestrator-*` skills.
+
+### Changed
+- Tests: removed obsolete `test_poll_wait.sh` (poll-wait.sh was cut in #151); made `test_orch_spawn.sh` cwd-independent via `ORCH_REPO_ROOT`.
+
 ## [0.9.0] - 2026-06-14
 
 ### Added
